@@ -1,4 +1,4 @@
-## 🕯️ Press F (to pay respects)
+# 🕯️ Press F (to pay respects)
 
 **Press F** is a decentralized meme protocol that turns viral tweets into tradable tokens — and finally gives credit where it’s due.
 
