@@ -86,7 +86,7 @@ const TokenRow = ({ token, index }: { token: Token; index: number }) => {
                             <div className="text-white font-semibold truncate max-w-24" title={token.tokenName}>
                                 {token.tokenName}
                             </div>
-                            <div className="text-cyan-400 font-mono text-xs">
+                            <div className="text-cyan-400 font-mono text-xs text-start">
                                 {token.tokenSymbol}
                             </div>
                         </div>
