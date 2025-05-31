@@ -1,11 +1,12 @@
 import { useEffect, useRef, useState } from "react";
-import { useNavigate } from "react-router";
+import { useNavigate, useSearchParams } from "react-router";
+import { useAccount } from "wagmi";
 import { useTwitterAccountProof } from "../../../hooks/useTwitterAccountProof";
 import { ProveStepPresentational } from "./Presentational";
-import { useAccount } from "wagmi";
 
 export const ProveStep = () => {
   const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
   const { address } = useAccount();
   const [disabled, setDisabled] = useState(false);
   const modalRef = useRef<HTMLDialogElement>(null);
@@ -28,9 +29,11 @@ export const ProveStep = () => {
 
   useEffect(() => {
     if (result) {
-      void navigate("/mint");
+      const token = searchParams.get("token");
+      const tokenParam = token ? `?token=${token}` : "";
+      void navigate(`/mint${tokenParam}`);
     }
-  }, [result, navigate]);
+  }, [result, navigate, searchParams]);
 
   useEffect(() => {
     modalRef.current?.showModal();

@@ -34,9 +34,11 @@ export const Modal = ({ children }: { children: React.ReactNode }) => {
   const { currentStep } = useCurrentStep();
   const [isWelcome, setIsWelcome] = useState(false);
   const [isSuccessStep, setIsSuccessStep] = useState(false);
+  const [isTokenList, setIsTokenList] = useState(false);
   useEffect(() => {
     setIsWelcome(currentStep?.kind === STEP_KIND.WELCOME);
     setIsSuccessStep(currentStep?.kind === STEP_KIND.SUCCESS);
+    setIsTokenList(currentStep?.kind === STEP_KIND.TOKEN_LIST);
   }, [currentStep?.kind]);
 
   const [descClass, setDescClass] = useState("");
@@ -55,12 +57,15 @@ export const Modal = ({ children }: { children: React.ReactNode }) => {
       {/* Simplified Background */}
       <div className="fixed inset-0 bg-gradient-to-br from-purple-900 via-black to-blue-900 opacity-90" />
 
-      {/* Main Modal Container */}
-      <div className="modal-box bg-black/90 backdrop-blur-xl rounded-2xl border-2 border-purple-500/50 shadow-2xl shadow-purple-500/25 relative overflow-hidden">
+      {/* Main Modal Container - 根據是否為TokenList調整尺寸 */}
+      <div className={`modal-box bg-black/90 backdrop-blur-xl rounded-2xl border-2 border-purple-500/50 shadow-2xl shadow-purple-500/25 relative overflow-hidden ${isTokenList
+        ? 'w-11/12 max-w-7xl h-5/6 max-h-[90vh]'
+        : 'w-full max-w-2xl'
+        }`}>
 
         {/* Content Container */}
         <motion.div
-          className="relative z-10 flex flex-col  justify-between p-4"
+          className="relative z-10 flex flex-col justify-between p-4 h-full"
           initial={{ opacity: 0, scale: 0.3, rotateY: 180 }}
           animate={{ opacity: 1, scale: 1, rotateY: 0 }}
           exit={{ opacity: 0, scale: 0.3, rotateY: -180 }}
@@ -81,11 +86,11 @@ export const Modal = ({ children }: { children: React.ReactNode }) => {
           </motion.div>
 
           <ErrorBoundary FallbackComponent={StepErrorBoundaryComponent}>
-            {/* Header Icon with Epic Effects */}
+            {/* Header Icon with Epic Effects - 只在非TokenList時顯示 */}
             <AnimatePresence>
-              {currentStep?.headerIcon && (
+              {currentStep?.headerIcon && !isTokenList && (
                 <motion.div
-                  className="relative"
+                  className="relative flex justify-center items-center"
                   initial={{ opacity: 0, scale: 0.1, y: -100 }}
                   animate={{ opacity: 1, scale: 1, y: 0 }}
                   exit={{ opacity: 0, scale: 0.1, y: 100 }}
@@ -113,7 +118,8 @@ export const Modal = ({ children }: { children: React.ReactNode }) => {
               )}
             </AnimatePresence>
 
-            <div className="flex-col flex gap-6 justify-center h-[284px] mb-2 w-full">
+            <div className={`flex-col flex gap-6 justify-center mb-2 w-full ${isTokenList ? 'flex-1 min-h-0' : 'h-[284px]'
+              }`}>
               {/* Game Title with Glitch Effect */}
               {currentStep?.gameTitle && (
                 <motion.div
@@ -154,20 +160,37 @@ export const Modal = ({ children }: { children: React.ReactNode }) => {
                 </motion.h3>
               )}
 
-              {/* Description with Gaming Flair */}
-              <motion.div
-                className="text-center px-4"
-                initial={{ opacity: 0 }}
-                animate={{ opacity: 1 }}
-                transition={{ delay: 0.6 }}
-              >
-                <p className={`text-gray-300 leading-relaxed ${descClass} text-lg`}>
-                  {description}
-                </p>
-              </motion.div>
+              {/* Description with Gaming Flair - TokenList時縮小或隱藏 */}
+              {!isTokenList && (
+                <motion.div
+                  className="text-center px-4"
+                  initial={{ opacity: 0 }}
+                  animate={{ opacity: 1 }}
+                  transition={{ delay: 0.6 }}
+                >
+                  <p className={`text-gray-300 leading-relaxed ${descClass} text-lg`}>
+                    {description}
+                  </p>
+                </motion.div>
+              )}
 
-              {/* Content with Slide-in Effect */}
+              {/* TokenList時的簡化描述 */}
+              {isTokenList && (
+                <motion.div
+                  className="text-center px-4"
+                  initial={{ opacity: 0 }}
+                  animate={{ opacity: 1 }}
+                  transition={{ delay: 0.6 }}
+                >
+                  <p className={`text-gray-300 leading-relaxed ${descClass} text-sm`}>
+                    {description}
+                  </p>
+                </motion.div>
+              )}
+
+              {/* Content with Slide-in Effect - TokenList時佔滿剩餘空間 */}
               <motion.div
+                className={isTokenList ? "flex-1 overflow-auto" : ""}
                 initial={{ opacity: 0, y: 50 }}
                 animate={{ opacity: 1, y: 0 }}
                 transition={{ delay: 0.7, type: "spring" }}

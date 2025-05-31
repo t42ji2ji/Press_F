@@ -1,9 +1,11 @@
+import React from "react";
 import {
   ConnectWalletStep,
   InstallExtension,
   MintStep,
   ProveStep,
   SuccessStep,
+  TokenList,
   WelcomeScreen,
 } from "../components";
 
@@ -21,6 +23,7 @@ export type Step = {
 };
 
 export enum STEP_KIND {
+  TOKEN_LIST,
   WELCOME,
   CONNECT_WALLET,
   START_PROVING,
@@ -31,6 +34,18 @@ export enum STEP_KIND {
 export const steps: Step[] = [
   {
     path: "",
+    kind: STEP_KIND.TOKEN_LIST,
+    component: TokenList,
+    title: "🎮 Available Tokens 🚀",
+    gameTitle: "SELECT YOUR TOKEN",
+    description:
+      "💎 Browse available tokens and start claiming! Each token represents a monetized X post. Pick one to start earning or create your own! 🌟💰",
+    headerIcon: "/nft-illustration.svg",
+    index: 0,
+    xpReward: 0,
+  },
+  {
+    path: "welcome",
     kind: STEP_KIND.WELCOME,
     component: WelcomeScreen,
     title: "🎮 Press F to Tokenize Posts 🕯️",
@@ -38,7 +53,7 @@ export const steps: Step[] = [
     description:
       "💎 Turn your X posts into tradeable tokens! Original creators earn from every trade - no cap! Prove ownership, mint tokens, and let your content work for you. Ready to monetize your posts, anon? 🚀💰",
     headerIcon: "/nft-illustration.svg",
-    index: 0,
+    index: 1,
     xpReward: 0,
   },
   {
@@ -50,7 +65,7 @@ export const steps: Step[] = [
     gameTitle: "LEVEL 1: CONNECT YOUR VAULT",
     description:
       "Link your wallet to start earning from your X posts! This is where your creator royalties will flow. Time to plug into the creator economy! 💰✨",
-    index: 1,
+    index: 2,
     xpReward: 100,
   },
   {
@@ -62,7 +77,7 @@ export const steps: Step[] = [
     gameTitle: "LEVEL 2: PROVE YOUR CREATION",
     description:
       "Time to prove you're the real creator! Use vlayer extension to verify your X account ownership. Only real creators can tokenize their posts - no bots allowed! ⚡🎯",
-    index: 2,
+    index: 3,
     xpReward: 250,
   },
   {
@@ -73,7 +88,7 @@ export const steps: Step[] = [
     title: "🛠️ CREATOR TOOLS REQUIRED",
     gameTitle: "DOWNLOAD CREATOR DLC",
     description: `Need the creator toolkit? Install vlayer extension to unlock post tokenization powers. No extension = no monetization, fr! 🔧🚀`,
-    index: 2,
+    index: 3,
     xpReward: 150,
   },
   {
@@ -84,7 +99,7 @@ export const steps: Step[] = [
     title: "💎 POST TOKEN FORGE",
     gameTitle: "LEVEL 3: MINT YOUR POST TOKEN",
     description: `Your post is verified and ready to become a tradeable token! Mint it now and start earning royalties from every future trade. Time to make bank from your content! 🌟💸`,
-    index: 3,
+    index: 4,
     xpReward: 500,
   },
   {
@@ -93,10 +108,9 @@ export const steps: Step[] = [
     component: SuccessStep,
     title: "🏆 CREATOR ECONOMY UNLOCKED",
     gameTitle: "VICTORY ROYALE!",
-    description:
-      "GG EZ! Your X post is now a tradeable token and you'll earn from every trade! Welcome to the future of content monetization! 🎉👑💎",
+    description: "GG EZ! You've successfully minted your post token! 🎉",
     headerIcon: "/success-illustration.svg",
-    index: 4,
+    index: 5,
     xpReward: 1000,
   },
 ];

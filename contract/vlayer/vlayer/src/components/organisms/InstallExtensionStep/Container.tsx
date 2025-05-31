@@ -1,19 +1,22 @@
+import { useEffect } from "react";
+import { useNavigate, useSearchParams } from "react-router";
 import { useExtension } from "../../../hooks/useExtension";
 import { InstallExtensionPresentational } from "./Presentationa";
-import { useNavigate } from "react-router";
-import { useEffect } from "react";
 
 export const InstallExtension = () => {
   const { hasExtensionInstalled } = useExtension();
-
   const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
 
   useEffect(() => {
     if (hasExtensionInstalled) {
-      void navigate("/start-proving");
+      // 保留 URL 參數
+      const token = searchParams.get("token");
+      const tokenParam = token ? `?token=${token}` : "";
+      void navigate(`/start-proving${tokenParam}`);
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [hasExtensionInstalled]);
+  }, [hasExtensionInstalled, searchParams]);
 
   return <InstallExtensionPresentational />;
 };
