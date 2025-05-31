@@ -120,6 +120,12 @@ let fPressCount = 0;
 let lastMessageIndex = -1;
 let simulationInterval = null;
 
+// Cache for token data
+const tokenDataCache = new Map();
+// Track last contract call times
+const lastCallTimes = new Map();
+const CALL_COOLDOWN = 10000; // 10 seconds in milliseconds
+
 // Array of message variations for F press
 const fPressMessages = [
     "You put your hands together in solemn prayer.",
@@ -236,10 +242,45 @@ async function updateTokenInfo(tweet) {
         // Get the full URL from the href attribute
         const tweetUrl = tweetLink.href;
         console.log('Tweet URL from element:', tweetUrl);
+
+        // Check cooldown first
+        const lastCallTime = lastCallTimes.get(tweetUrl) || 0;
+        const timeSinceLastCall = Date.now() - lastCallTime;
         
-        // Call the contract to get token info
-        const tokenData = await contract.getTokenByXUrl(tweetUrl);
-        console.log('Token data received from contract:', {
+        if (timeSinceLastCall < CALL_COOLDOWN) {
+            console.log(`In cooldown period (${Math.ceil((CALL_COOLDOWN - timeSinceLastCall) / 1000)}s remaining)`);
+            throw new Error('In cooldown period');
+        }
+        
+        // Check cache
+        let tokenData;
+        if (tokenDataCache.has(tweetUrl)) {
+            console.log('Using cached token data');
+            tokenData = tokenDataCache.get(tweetUrl);
+            if (tokenData === null) {
+                // If cached value is null, it means no token was found
+                throw new Error('No token (cached)');
+            }
+        } else {
+            console.log('Fetching new token data');
+            try {
+                // Call the contract to get token info
+                tokenData = await contract.getTokenByXUrl(tweetUrl);
+                // Cache the successful result
+                tokenDataCache.set(tweetUrl, tokenData);
+                // Update last call time
+                lastCallTimes.set(tweetUrl, Date.now());
+            } catch (error) {
+                // Cache the failed result
+                console.log('No token found, caching result');
+                tokenDataCache.set(tweetUrl, null);
+                // Update last call time even for failed calls
+                lastCallTimes.set(tweetUrl, Date.now());
+                throw error;
+            }
+        }
+        
+        console.log('Token data:', {
             tokenAddress: tokenData.tokenAddress,
             tokenName: tokenData.tokenName,
             tokenSymbol: tokenData.tokenSymbol,
@@ -266,7 +307,8 @@ async function updateTokenInfo(tweet) {
             <div class="press-f-text">Press F to Pay Respects</div>
         `;
         
-        // Start simulation for token existence
+        // Start simulation only if we have a token
+        stopSimulation(); // Ensure any existing simulation is stopped
         startSimulation();
     } catch (error) {
         // Handle the no-token case
@@ -556,7 +598,6 @@ function handleTweetHover(event) {
         updateTokenInfo(tweet);
         
         showOverlay(); // Show the "Press F" text and effects
-        startSimulation(); // Start simulation when hovering over a tweet
     }
 }
 
@@ -591,6 +632,14 @@ function handleKeyPress(event) {
             console.log('F pressed, attempting to create token');
             addActivityLogEntry('Initiating token creation...');
             
+            // Get the tweet URL and clear its cache
+            const tweetLink = hoveredTweet.querySelector('a[href*="/status/"]');
+            if (tweetLink) {
+                const tweetUrl = tweetLink.href;
+                console.log('Clearing cache for tweet:', tweetUrl);
+                tokenDataCache.delete(tweetUrl);
+            }
+            
             try {
                 // Find and click the reply button
                 const replyButton = hoveredTweet.querySelector('[data-testid="reply"]') || 
@@ -620,6 +669,11 @@ function handleKeyPress(event) {
                                     console.log('Found send button, clicking...');
                                     sendButton.click();
                                     console.log('Reply sent successfully');
+                                    
+                                    // After sending the reply, wait a moment and then recheck the token
+                                    setTimeout(() => {
+                                        updateTokenInfo(hoveredTweet);
+                                    }, 2000);
                                 } else {
                                     console.error('Could not find send button');
                                 }
