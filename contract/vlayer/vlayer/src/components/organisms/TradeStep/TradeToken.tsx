@@ -53,6 +53,32 @@ const PUMPFUN_ABI = [
     },
     {
         "type": "function",
+        "name": "calculateSellEthOutput",
+        "inputs": [
+            {
+                "name": "token",
+                "type": "tuple",
+                "internalType": "struct PumpFun.Token",
+                "components": [
+                    { "name": "tokenMint", "type": "address", "internalType": "address" },
+                    { "name": "virtualTokenReserves", "type": "uint256", "internalType": "uint256" },
+                    { "name": "virtualEthReserves", "type": "uint256", "internalType": "uint256" },
+                    { "name": "realTokenReserves", "type": "uint256", "internalType": "uint256" },
+                    { "name": "realEthReserves", "type": "uint256", "internalType": "uint256" },
+                    { "name": "tokenTotalSupply", "type": "uint256", "internalType": "uint256" },
+                    { "name": "mcapLimit", "type": "uint256", "internalType": "uint256" },
+                    { "name": "complete", "type": "bool", "internalType": "bool" },
+                    { "name": "xUser", "type": "string", "internalType": "string" },
+                    { "name": "collectedFees", "type": "uint256", "internalType": "uint256" }
+                ]
+            },
+            { "name": "tokenAmount", "type": "uint256", "internalType": "uint256" }
+        ],
+        "outputs": [{ "name": "", "type": "uint256", "internalType": "uint256" }],
+        "stateMutability": "pure"
+    },
+    {
+        "type": "function",
         "name": "buy",
         "inputs": [
             { "name": "token", "type": "address", "internalType": "address" },
@@ -61,6 +87,48 @@ const PUMPFUN_ABI = [
         ],
         "outputs": [],
         "stateMutability": "payable"
+    },
+    {
+        "type": "function",
+        "name": "sell",
+        "inputs": [
+            { "name": "token", "type": "address", "internalType": "address" },
+            { "name": "amount", "type": "uint256", "internalType": "uint256" },
+            { "name": "minEthOutput", "type": "uint256", "internalType": "uint256" }
+        ],
+        "outputs": [],
+        "stateMutability": "nonpayable"
+    }
+] as const;
+
+// ERC20 ABI - 用於檢查代幣餘額
+const ERC20_ABI = [
+    {
+        "type": "function",
+        "name": "balanceOf",
+        "inputs": [{ "name": "account", "type": "address", "internalType": "address" }],
+        "outputs": [{ "name": "", "type": "uint256", "internalType": "uint256" }],
+        "stateMutability": "view"
+    },
+    {
+        "type": "function",
+        "name": "allowance",
+        "inputs": [
+            { "name": "owner", "type": "address", "internalType": "address" },
+            { "name": "spender", "type": "address", "internalType": "address" }
+        ],
+        "outputs": [{ "name": "", "type": "uint256", "internalType": "uint256" }],
+        "stateMutability": "view"
+    },
+    {
+        "type": "function",
+        "name": "approve",
+        "inputs": [
+            { "name": "spender", "type": "address", "internalType": "address" },
+            { "name": "amount", "type": "uint256", "internalType": "uint256" }
+        ],
+        "outputs": [{ "name": "", "type": "bool", "internalType": "bool" }],
+        "stateMutability": "nonpayable"
     }
 ] as const;
 
@@ -77,9 +145,12 @@ export const TradeToken = () => {
     const tokenSymbol = searchParams.get("symbol");
 
     const [amount, setAmount] = useState("");
+    const [isBuyMode, setIsBuyMode] = useState(true);
     const [ethCost, setEthCost] = useState<bigint | null>(null);
+    const [ethOutput, setEthOutput] = useState<bigint | null>(null);
     const [maxEthCost, setMaxEthCost] = useState<bigint | null>(null);
     const [isCalculating, setIsCalculating] = useState(false);
+    const [isApproving, setIsApproving] = useState(false);
 
     // 獲取 bonding curve 數據
     const { data: bondingCurveData } = useReadContract({
@@ -90,44 +161,125 @@ export const TradeToken = () => {
         query: { enabled: !!tokenAddress }
     });
 
-    // 計算 ETH 成本
+    // 獲取用戶代幣餘額
+    const { data: tokenBalance, refetch: refetchTokenBalance } = useReadContract({
+        address: tokenAddress as `0x${string}`,
+        abi: ERC20_ABI,
+        functionName: "balanceOf",
+        args: [address as `0x${string}`],
+        query: { enabled: !!tokenAddress && !!address && isConnected }
+    });
+
+    // 獲取 PUMPFUN_ADDRESS 的代幣授權額度
+    const { data: allowance, refetch: refetchAllowance } = useReadContract({
+        address: tokenAddress as `0x${string}`,
+        abi: ERC20_ABI,
+        functionName: "allowance",
+        args: [address as `0x${string}`, PUMPFUN_ADDRESS],
+        query: { enabled: !!tokenAddress && !!address && isConnected && !isBuyMode }
+    });
+
+    // 計算 ETH 成本 (買入)
     const { data: calculatedEthCost } = useReadContract({
         address: PUMPFUN_ADDRESS,
         abi: PUMPFUN_ABI,
         functionName: "calculateEthCost",
         args: [bondingCurveData as any, parseEther(amount || "0")],
         query: {
-            enabled: !!bondingCurveData && !!amount && parseFloat(amount) > 0
+            enabled: !!bondingCurveData && !!amount && parseFloat(amount) > 0 && isBuyMode
+        }
+    });
+
+    // 計算 ETH 輸出 (賣出)
+    const { data: calculatedEthOutput } = useReadContract({
+        address: PUMPFUN_ADDRESS,
+        abi: PUMPFUN_ABI,
+        functionName: "calculateSellEthOutput",
+        args: [bondingCurveData as any, parseEther(amount || "0")],
+        query: {
+            enabled: !!bondingCurveData && !!amount && parseFloat(amount) > 0 && !isBuyMode
         }
     });
 
     // 購買函數
-    const { writeContract, isPending: isBuying } = useWriteContract({
+    const { writeContract: writeBuyContract, isPending: isBuying } = useWriteContract({
         mutation: {
             onSuccess: async (txHash) => {
-                // 顯示交易 toast 通知
                 if (chain?.id && txHash) {
                     try {
                         await openTxToast(chain.id.toString(), txHash);
-                        console.log(`Transaction submitted: ${txHash}`);
+                        console.log(`Buy transaction submitted: ${txHash}`);
+                        refetchTokenBalance();
                     } catch (error) {
                         console.error("Failed to show transaction toast:", error);
                     }
                 }
             },
             onError: (error) => {
-                console.error("Transaction failed:", error);
+                console.error("Buy transaction failed:", error);
+            }
+        }
+    });
+
+    // 賣出函數
+    const { writeContract: writeSellContract, isPending: isSelling } = useWriteContract({
+        mutation: {
+            onSuccess: async (txHash) => {
+                if (chain?.id && txHash) {
+                    try {
+                        await openTxToast(chain.id.toString(), txHash);
+                        console.log(`Sell transaction submitted: ${txHash}`);
+                        refetchTokenBalance();
+                        refetchAllowance();
+                    } catch (error) {
+                        console.error("Failed to show transaction toast:", error);
+                    }
+                }
+            },
+            onError: (error) => {
+                console.error("Sell transaction failed:", error);
+            }
+        }
+    });
+
+    // Approve 函數
+    const { writeContract: writeApproveContract, isPending: isApprovingToken } = useWriteContract({
+        mutation: {
+            onSuccess: async (txHash) => {
+                if (chain?.id && txHash) {
+                    try {
+                        await openTxToast(chain.id.toString(), txHash);
+                        console.log(`Approve transaction submitted: ${txHash}`);
+                        // 批准成功後，重新獲取授權額度
+                        await refetchAllowance();
+                        // 重新觸發賣出操作
+                        await handleSell(true);
+                    } catch (error) {
+                        console.error("Failed to show transaction toast or refetch allowance:", error);
+                    } finally {
+                        setIsApproving(false);
+                    }
+                }
+            },
+            onError: (error) => {
+                console.error("Approve transaction failed:", error);
+                setIsApproving(false);
             }
         }
     });
 
     useEffect(() => {
-        if (calculatedEthCost) {
+        if (isBuyMode && calculatedEthCost) {
             setEthCost(calculatedEthCost);
+            setEthOutput(null);
             // 設置 maxEthCost 為計算成本的 1.1 倍
             setMaxEthCost((calculatedEthCost * BigInt(110)) / BigInt(100));
+        } else if (!isBuyMode && calculatedEthOutput) {
+            setEthOutput(calculatedEthOutput);
+            setEthCost(null);
+            setMaxEthCost(null);
         }
-    }, [calculatedEthCost]);
+    }, [calculatedEthCost, calculatedEthOutput, isBuyMode]);
 
     const handleBuy = async () => {
         if (!tokenAddress || !amount || !ethCost || !maxEthCost || !isConnected) {
@@ -135,7 +287,7 @@ export const TradeToken = () => {
         }
 
         try {
-            writeContract({
+            writeBuyContract({
                 address: PUMPFUN_ADDRESS,
                 abi: PUMPFUN_ABI,
                 functionName: "buy",
@@ -150,6 +302,78 @@ export const TradeToken = () => {
             console.error("Purchase failed:", error);
         }
     };
+
+    const handleSell = async (isRetry = false) => {
+        if (!tokenAddress || !amount || !isConnected) {
+            return;
+        }
+
+        const sellAmount = parseEther(amount);
+
+        if (!isRetry && allowance !== undefined && allowance < sellAmount) {
+            setIsApproving(true);
+            try {
+                writeApproveContract({
+                    address: tokenAddress as `0x${string}`,
+                    abi: ERC20_ABI,
+                    functionName: "approve",
+                    args: [PUMPFUN_ADDRESS, sellAmount]
+                });
+            } catch (error) {
+                console.error("Approval failed:", error);
+                setIsApproving(false);
+            }
+            return; // 等待 approve 完成後，會通過 onSuccess 回調再次觸發 handleSell
+        }
+
+        try {
+            writeSellContract({
+                address: PUMPFUN_ADDRESS,
+                abi: PUMPFUN_ABI,
+                functionName: "sell",
+                args: [
+                    tokenAddress as `0x${string}`,
+                    parseEther(amount),
+                    BigInt(0) // minEthOutput 設為 0
+                ]
+            });
+        } catch (error) {
+            console.error("Sell failed:", error);
+        }
+    };
+
+    const handleTrade = () => {
+        if (isBuyMode) {
+            handleBuy();
+        } else {
+            handleSell();
+        }
+    };
+
+    const maxAmount = tokenBalance ? formatEther(tokenBalance) : "0";
+    const isProcessing = isBuying || isSelling || isApprovingToken;
+
+    const setMaxTokenAmount = () => {
+        if (tokenBalance && !isBuyMode) {
+            setAmount(formatEther(tokenBalance));
+        }
+    };
+
+    // 檢查是否餘額不足
+    const isInsufficientBalance = !isBuyMode &&
+        tokenBalance &&
+        amount &&
+        amount.trim() !== "" &&
+        parseFloat(amount) > 0 &&
+        parseEther(amount) > tokenBalance;
+
+    // 檢查按鈕是否應該禁用
+    const isButtonDisabled = !amount ||
+        parseFloat(amount) <= 0 ||
+        isProcessing ||
+        (isBuyMode && !ethCost) ||
+        (!isBuyMode && !ethOutput && !isApprovingToken) ||
+        Boolean(isInsufficientBalance);
 
     if (isMobile) {
         return (
@@ -210,10 +434,54 @@ export const TradeToken = () => {
             <div className="flex-1 p-6 flex items-center justify-center">
                 <div className="w-full max-w-lg bg-gray-800/60 backdrop-blur-sm rounded-2xl p-8 border border-gray-700/50 shadow-2xl">
 
+                    {/* Buy/Sell Toggle */}
+                    <div className="mb-6">
+                        <div className="flex rounded-lg bg-gray-900/50 border border-gray-600 p-1">
+                            <button
+                                onClick={() => setIsBuyMode(true)}
+                                className={`flex-1 py-2 px-4 rounded-md text-sm font-medium transition-all ${isBuyMode
+                                    ? "bg-green-600 text-white shadow-lg"
+                                    : "text-gray-400 hover:text-white"
+                                    }`}
+                            >
+                                🚀 Buy
+                            </button>
+                            <button
+                                onClick={() => setIsBuyMode(false)}
+                                className={`flex-1 py-2 px-4 rounded-md text-sm font-medium transition-all ${!isBuyMode
+                                    ? "bg-red-600 text-white shadow-lg"
+                                    : "text-gray-400 hover:text-white"
+                                    }`}
+                            >
+                                💰 Sell
+                            </button>
+                        </div>
+                    </div>
+
+                    {/* Token Balance (for selling) */}
+                    {!isBuyMode && (
+                        <div className="mb-6 p-4 bg-gray-900/50 rounded-xl border border-gray-600">
+                            <div className="flex justify-between items-center">
+                                <span className="text-gray-300 text-sm">Your Balance:</span>
+                                <div className="flex items-center gap-2">
+                                    <span className="text-yellow-400 font-mono font-semibold">
+                                        {maxAmount} {tokenSymbol}
+                                    </span>
+                                    <button
+                                        onClick={setMaxTokenAmount}
+                                        className="text-xs bg-yellow-600 hover:bg-yellow-500 text-white px-2 py-1 rounded transition-colors"
+                                    >
+                                        MAX
+                                    </button>
+                                </div>
+                            </div>
+                        </div>
+                    )}
+
                     {/* Amount Input */}
                     <div className="mb-8">
                         <label className="block text-gray-300 text-base font-medium mb-3">
-                            Amount to Buy
+                            Amount to {isBuyMode ? "Buy" : "Sell"}
                         </label>
                         <div className="relative">
                             <input
@@ -224,6 +492,7 @@ export const TradeToken = () => {
                                 className="w-full bg-gray-900/50 border border-gray-600 rounded-xl px-5 py-4 text-white text-lg placeholder-gray-400 focus:outline-none focus:border-green-500 focus:ring-2 focus:ring-green-500/20 transition-all"
                                 min="0"
                                 step="0.000001"
+                                max={!isBuyMode ? maxAmount : undefined}
                             />
                             <div className="absolute right-4 top-4 text-gray-400 text-base font-medium">
                                 {tokenSymbol}
@@ -231,41 +500,61 @@ export const TradeToken = () => {
                         </div>
                     </div>
 
-                    {/* Cost Display */}
-                    {ethCost && (
+                    {/* Cost/Output Display */}
+                    {(ethCost || ethOutput) && (
                         <div className="mb-8 p-5 bg-gray-900/50 rounded-xl border border-gray-600">
-                            <div className="flex justify-between items-center mb-3">
-                                <span className="text-gray-300 text-base">Cost:</span>
-                                <span className="text-green-400 font-mono font-semibold text-lg">
-                                    {formatEther(ethCost)} ETH
-                                </span>
-                            </div>
-                            <div className="flex justify-between items-center">
-                                <span className="text-gray-400 text-sm">Max Cost (+ 10%):</span>
-                                <span className="text-yellow-400 font-mono text-base">
-                                    {maxEthCost ? formatEther(maxEthCost) : "0"} ETH
-                                </span>
-                            </div>
+                            {isBuyMode && ethCost && (
+                                <>
+                                    <div className="flex justify-between items-center mb-3">
+                                        <span className="text-gray-300 text-base">Cost:</span>
+                                        <span className="text-green-400 font-mono font-semibold text-lg">
+                                            {formatEther(ethCost)} ETH
+                                        </span>
+                                    </div>
+                                    <div className="flex justify-between items-center">
+                                        <span className="text-gray-400 text-sm">Max Cost (+ 10%):</span>
+                                        <span className="text-yellow-400 font-mono text-base">
+                                            {maxEthCost ? formatEther(maxEthCost) : "0"} ETH
+                                        </span>
+                                    </div>
+                                </>
+                            )}
+                            {!isBuyMode && ethOutput && (
+                                <div className="flex justify-between items-center">
+                                    <span className="text-gray-300 text-base">You'll receive:</span>
+                                    <span className="text-green-400 font-mono font-semibold text-lg">
+                                        {formatEther(ethOutput)} ETH
+                                    </span>
+                                </div>
+                            )}
                         </div>
                     )}
 
-                    {/* Buy Button */}
+                    {/* Trade Button */}
                     <button
-                        onClick={handleBuy}
-                        disabled={!amount || !ethCost || isBuying || parseFloat(amount) <= 0}
-                        className="w-full bg-gradient-to-r from-green-600 to-emerald-600 hover:from-green-500 hover:to-emerald-500 disabled:from-gray-600 disabled:to-gray-700 disabled:cursor-not-allowed text-white py-4 rounded-xl font-semibold text-lg transition-all duration-300 transform hover:scale-105 shadow-lg hover:shadow-green-500/50 disabled:hover:scale-100 disabled:shadow-none"
+                        onClick={handleTrade}
+                        disabled={isButtonDisabled}
+                        className={`w-full py-4 rounded-xl font-semibold text-lg transition-all duration-300 transform hover:scale-105 shadow-lg disabled:hover:scale-100 disabled:shadow-none disabled:cursor-not-allowed ${isBuyMode
+                            ? "bg-gradient-to-r from-green-600 to-emerald-600 hover:from-green-500 hover:to-emerald-500 disabled:from-gray-600 disabled:to-gray-700 hover:shadow-green-500/50"
+                            : "bg-gradient-to-r from-red-600 to-red-600 hover:from-red-500 hover:to-red-500 disabled:from-gray-600 disabled:to-gray-700 hover:shadow-red-500/50"
+                            } text-white`}
                     >
-                        {isBuying ? (
-                            "🔄 Purchasing..."
+                        {isProcessing ? (
+                            isBuyMode ? "🔄 Purchasing..." : "🔄 Selling..."
                         ) : !amount || parseFloat(amount) <= 0 ? (
                             "Enter Amount"
-                        ) : !ethCost ? (
+                        ) : isBuyMode && !ethCost ? (
                             "Calculating..."
+                        ) : !isBuyMode && !ethOutput ? (
+                            isApprovingToken ? "🔄 Approving..." : "Calculating..."
+                        ) : isInsufficientBalance ? (
+                            "Insufficient Balance"
                         ) : (
-                            `🚀 Buy ${amount} ${tokenSymbol}`
+                            isBuyMode
+                                ? `🚀 Buy ${amount} ${tokenSymbol}`
+                                : `💰 Sell ${amount} ${tokenSymbol}`
                         )}
                     </button>
-
 
                 </div>
             </div>
