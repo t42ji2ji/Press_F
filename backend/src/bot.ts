@@ -1,4 +1,8 @@
 import { TwitterApi } from "twitter-api-v2";
+import { createPublicClient, http } from "viem";
+import { optimismSepolia } from "viem/chains";
+import { TOKEN_FACTORY_ADDRESS, TOKEN_FACTORY_ABI } from "./abi";
+import { suggestToken, deployToken } from "./utils";
 import dotenv from "dotenv";
 
 dotenv.config();
@@ -14,18 +18,23 @@ const userClient = new TwitterApi({
   accessSecret: process.env.TWITTER_ACCESS_SECRET!,
 });
 
+// viem public client for checking token existence
+const publicClient = createPublicClient({
+  chain: optimismSepolia,
+  transport: http(process.env.OPTIMISM_SEPOLIA_RPC_URL!),
+});
+
 // Poll mentions timeline
 async function startBot() {
   try {
     console.log("Getting bot user info...");
     const me = await userClient.v2.me();
     const botId = me.data.id;
-    console.log("Bot ID:", botId);
     let sinceId: string | undefined = undefined;
 
     console.log("Bot started! Polling for mentions...");
 
-    setInterval(async () => {
+    while (true) {
       try {
         const mentions = await userClient.v2.userMentionTimeline(botId, {
           "tweet.fields": [
@@ -37,58 +46,94 @@ async function startBot() {
           max_results: 10,
           since_id: sinceId,
         });
-        console.log("Got mentions");
-
         if (mentions.data?.data && mentions.data.data.length > 0) {
-          console.log("Found mentions:", mentions.data.data.length);
-
-          // Update sinceId to the newest mention
           sinceId = mentions.data.data[0].id;
-
-          for (const tweet of mentions.data.data) {
-            console.log("Processing tweet:", tweet.id, "data:", tweet);
-
-            // Check if the tweet is a reply
-            if (
-              tweet.referenced_tweets?.some(
-                (ref: any) => ref.type === "replied_to"
-              )
-            ) {
-              const originalTweetId = tweet.referenced_tweets.find(
-                (ref: any) => ref.type === "replied_to"
-              )?.id;
-
-              if (originalTweetId) {
-                // Fetch the original tweet (with app context)
-                console.log("Getting original tweet");
-                const originalTweet = await appClient.v2.singleTweet(
-                  originalTweetId,
-                  {
-                    "tweet.fields": ["author_id"],
-                    expansions: ["author_id"],
-                  }
-                );
-                console.log("Got original tweet");
-
-                if (originalTweet.data) {
-                  const originalAuthor = originalTweet.includes?.users?.[0];
-
-                  // Construct the reply message
-                  const replyText = `Thank you @${originalAuthor?.username} for using the bot! The CA is`;
-
-                  // Reply to the user (with user context)
-                  console.log("Replying to user");
-                  await userClient.v2.reply(replyText, tweet.id);
-                  console.log("Replied to user");
+          const tweet = mentions.data.data[0];
+          if (
+            tweet.referenced_tweets?.some(
+              (ref: any) => ref.type === "replied_to"
+            )
+          ) {
+            const originalTweetId = tweet.referenced_tweets.find(
+              (ref: any) => ref.type === "replied_to"
+            )?.id;
+            if (originalTweetId) {
+              // Fetch the original tweet (with app context)
+              const originalTweet = await appClient.v2.singleTweet(
+                originalTweetId,
+                {
+                  "tweet.fields": ["author_id", "text"],
+                  expansions: ["author_id"],
                 }
+              );
+              const tweetText = originalTweet.data?.text || "";
+              const originalAuthor = originalTweet.includes?.users?.[0];
+              const xUrl = `https://x.com/${originalAuthor?.username}/status/${originalTweetId}`;
+              const xUser = originalAuthor?.username || "";
+
+              // 1. Suggest token
+              let symbol = "MEME";
+              let name = "MemeCoin";
+              try {
+                const suggestion = await suggestToken(tweetText);
+                symbol = suggestion.symbol;
+                name = suggestion.name;
+              } catch (e) {
+                console.error("OpenAI suggestion failed", e);
+                throw e;
               }
+
+              // 2. Check if token already exists for this xUrl
+              let tokenExists = false;
+              try {
+                const tokenInfo = await publicClient.readContract({
+                  address: TOKEN_FACTORY_ADDRESS,
+                  abi: TOKEN_FACTORY_ABI,
+                  functionName: "getTokenByXUrl",
+                  args: [xUrl],
+                });
+                if (
+                  tokenInfo &&
+                  tokenInfo.tokenAddress &&
+                  tokenInfo.tokenAddress !==
+                    "0x0000000000000000000000000000000000000000"
+                ) {
+                  tokenExists = true;
+                }
+              } catch (e) {
+                // If it reverts, token does not exist
+                tokenExists = false;
+              }
+              if (tokenExists) {
+                console.log(`Token already exists for xUrl: ${xUrl}`);
+                throw new Error("Token already exists");
+              }
+
+              // 3. Deploy token using util
+              let hash = "";
+              let tokenAddress = "";
+              try {
+                const deployed = await deployToken(name, symbol, xUrl, xUser);
+                hash = deployed.hash;
+                tokenAddress = deployed.tokenAddress;
+              } catch (e) {
+                console.error("Token deployment failed.", e);
+                throw e;
+              }
+
+              // 4. Reply to user
+              const replyText = `Your token is deployed!\nName: ${name}\nSymbol: ${symbol}\nAddress: ${tokenAddress}`;
+              await userClient.v2.reply(replyText, tweet.id);
             }
           }
         }
       } catch (error) {
         console.error("Error processing mentions:", error);
       }
-    }, 3 * 1000); // Poll every 3 seconds
+
+      // Sleep for 15 minutes
+      await new Promise((resolve) => setTimeout(resolve, 15 * 60 * 1000));
+    }
   } catch (error) {
     console.error("Error starting bot:", error);
   }
