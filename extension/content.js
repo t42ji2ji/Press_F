@@ -1,11 +1,181 @@
 // Track the currently hovered tweet
 let hoveredTweet = null;
+let activityLog = null;
+let tokenInfo = null;
+let fPressCount = 0;
+let lastMessageIndex = -1;
+let simulationInterval = null;
+
+// Array of message variations for F press
+const fPressMessages = [
+    "You put your hands together in solemn prayer.",
+    "You bow your head in respect.",
+    "You close your eyes and take a moment of silence.",
+    "You whisper a quiet prayer.",
+    "You light a virtual candle in remembrance.",
+    "You stand in silent tribute.",
+    "You offer your deepest condolences.",
+    "You take a moment to reflect.",
+    "You send your thoughts and prayers.",
+    "You honor the memory with reverence.",
+    "You pay your respects with dignity.",
+    "You observe a moment of silence.",
+    "You offer a solemn salute.",
+    "You bow in silent tribute.",
+    "You light incense in remembrance.",
+    "You offer a prayer for peace.",
+    "You stand in quiet reverence.",
+    "You send your deepest sympathies.",
+    "You honor with solemn dignity.",
+    "You pay tribute with respect."
+];
+
+// Array of random usernames for simulation
+const randomUsernames = [
+    "@cryptoelephant",
+    "@vibechad",
+    "@degenoracle",
+    "@airdropalpaca",
+    "@satoshisbarista",
+    "@rektferret",
+    "@yieldwitch",
+    "@txsniper",
+    "@bagholder99",
+    "@fomo_penguin",
+    "@mintycoffeebean",
+    "@soltrader420",
+    "@gasfeeghost",
+    "@gmfrogtown",
+    "@evmtoad",
+    "@layerzerohero",
+    "@zkwizard",
+    "@fungifisher",
+    "@basedmosquito",
+    "@tokenbae",
+    "@rollupuncle",
+    "@mempoolmonk",
+    "@frenzone",
+    "@bridgeburner",
+    "@rugpullricky",
+    "@notfinancialadvice",
+    "@web3wombat",
+    "@pumpcat69",
+    "@dappdad",
+    "@pepecurator"
+];
+
+// Create and inject the token info panel
+function createTokenInfo() {
+    if (!tokenInfo) {
+        tokenInfo = document.createElement('div');
+        tokenInfo.className = 'token-info';
+        tokenInfo.innerHTML = `
+            <div class="token-info-header">Token Info</div>
+            <div class="token-info-row">
+                <span class="token-info-label">Name</span>
+                <span class="token-info-value">Respect</span>
+            </div>
+            <div class="token-info-row">
+                <span class="token-info-label">Ticker</span>
+                <span class="token-info-value">$RSPCT</span>
+            </div>
+            <div class="token-info-row">
+                <span class="token-info-label">Price</span>
+                <span class="token-info-value">$0.420</span>
+            </div>
+            <div class="token-info-row">
+                <span class="token-info-label">Contract</span>
+                <span class="token-info-value contract">0x1234...5678</span>
+            </div>
+            <div class="token-info-row">
+                <span class="token-info-label">Respects</span>
+                <span class="token-info-value respects">0</span>
+            </div>
+        `;
+        document.body.appendChild(tokenInfo);
+    }
+    return tokenInfo;
+}
+
+// Update token info with tweet data
+function updateTokenInfo(tweet) {
+    const tokenInfo = createTokenInfo();
+    
+    // For now, we'll just update the respects count
+    const respectsValue = tokenInfo.querySelector('.token-info-value.respects');
+    respectsValue.textContent = fPressCount;
+}
+
+// Create and inject the activity log
+function createActivityLog() {
+    if (!activityLog) {
+        activityLog = document.createElement('div');
+        activityLog.className = 'activity-log';
+        activityLog.innerHTML = '<div class="activity-log-header">Activity Log</div>';
+        document.body.appendChild(activityLog);
+    }
+    return activityLog;
+}
+
+// Reset activity log
+function resetActivityLog() {
+    if (activityLog) {
+        activityLog.innerHTML = '<div class="activity-log-header">Activity Log</div>';
+        fPressCount = 0;
+        lastMessageIndex = -1;
+    }
+}
+
+// Get a random message that's different from the last one
+function getRandomMessage() {
+    let index;
+    do {
+        index = Math.floor(Math.random() * fPressMessages.length);
+    } while (index === lastMessageIndex && fPressMessages.length > 1);
+    lastMessageIndex = index;
+    return fPressMessages[index];
+}
+
+// Add an entry to the activity log
+function addActivityLogEntry(message, isFPress = false, isRespectMessage = false) {
+    const log = createActivityLog();
+    
+    if (isFPress) {
+        // Add F press entry
+        const fEntry = document.createElement('div');
+        fEntry.className = 'activity-entry f-press';
+        fEntry.textContent = 'F';
+        log.insertBefore(fEntry, log.firstChild.nextSibling);
+        
+        // Add message entry
+        const messageEntry = document.createElement('div');
+        messageEntry.className = 'activity-entry respect-message';
+        messageEntry.textContent = message;
+        log.insertBefore(messageEntry, log.firstChild.nextSibling);
+    } else {
+        // Add regular entry
+        const entry = document.createElement('div');
+        entry.className = 'activity-entry';
+        entry.textContent = message;
+        log.insertBefore(entry, log.firstChild.nextSibling);
+    }
+    
+    // Keep only the last 10 entries (5 pairs of F + message)
+    const entries = log.querySelectorAll('.activity-entry');
+    if (entries.length > 10) {
+        entries[entries.length - 1].remove();
+        entries[entries.length - 2].remove();
+    }
+}
 
 // Create and inject the overlay element
 function createOverlay() {
     const overlay = document.createElement('div');
     overlay.className = 'press-f-overlay';
-    overlay.innerHTML = '<div class="press-f-text">Press F to Pay Respects</div>';
+    overlay.innerHTML = `
+        <div class="press-f-text">Press F to Pay Respects</div>
+        <div class="press-f-text command">Command+F to Establish Memorial</div>
+    `;
     document.body.appendChild(overlay);
     return overlay;
 }
@@ -16,26 +186,6 @@ function createVignette() {
     vignette.className = 'vignette';
     document.body.appendChild(vignette);
     return vignette;
-}
-
-// Create and inject the particles
-function createParticles() {
-    const container = document.createElement('div');
-    container.className = 'particles';
-    
-    // Create 12 larger particles
-    for (let i = 0; i < 12; i++) {
-        const particle = document.createElement('div');
-        particle.className = 'particle';
-        // Random starting position
-        particle.style.left = `${Math.random() * 100}%`;
-        // Random delay
-        particle.style.animationDelay = `${Math.random() * 4}s`;
-        container.appendChild(particle);
-    }
-    
-    document.body.appendChild(container);
-    return container;
 }
 
 // Create and inject the holy flash element
@@ -59,22 +209,26 @@ function createSaluteGif() {
 function showOverlay() {
     const overlay = document.querySelector('.press-f-overlay') || createOverlay();
     const vignette = document.querySelector('.vignette') || createVignette();
-    const particles = document.querySelector('.particles') || createParticles();
+    const activityLog = document.querySelector('.activity-log') || createActivityLog();
+    const tokenInfo = document.querySelector('.token-info') || createTokenInfo();
     
     overlay.classList.add('active');
     vignette.classList.add('active');
-    particles.classList.add('active');
+    activityLog.classList.add('active');
+    tokenInfo.classList.add('active');
 }
 
 // Hide the overlay animation
 function hideOverlay() {
     const overlay = document.querySelector('.press-f-overlay');
     const vignette = document.querySelector('.vignette');
-    const particles = document.querySelector('.particles');
+    const activityLog = document.querySelector('.activity-log');
+    const tokenInfo = document.querySelector('.token-info');
     
     if (overlay) overlay.classList.remove('active');
     if (vignette) vignette.classList.remove('active');
-    if (particles) particles.classList.remove('active');
+    if (activityLog) activityLog.classList.remove('active');
+    if (tokenInfo) tokenInfo.classList.remove('active');
 }
 
 // Show the holy flash effect
@@ -134,10 +288,69 @@ function simulateTyping(element, text) {
     element.dispatchEvent(event);
 }
 
+// Function to simulate other users pressing F
+function simulateOtherUserPress() {
+    if (!hoveredTweet) return;
+    
+    // Get random username
+    const username = randomUsernames[Math.floor(Math.random() * randomUsernames.length)];
+    
+    // Flash the border
+    hoveredTweet.style.animation = 'flashBorder 0.3s ease-out';
+    setTimeout(() => {
+        hoveredTweet.style.animation = '';
+    }, 300);
+    
+    // Update respects count
+    fPressCount++;
+    const respectsValue = document.querySelector('.token-info-value.respects');
+    if (respectsValue) {
+        respectsValue.textContent = fPressCount;
+    }
+    
+    // Add to activity log
+    addActivityLogEntry(`${username} paid their respects.`);
+}
+
+// Function to start simulation
+function startSimulation() {
+    // Clear any existing interval
+    if (simulationInterval) {
+        clearInterval(simulationInterval);
+    }
+    
+    // Start new simulation - random interval between 0.67-1.67 seconds
+    simulationInterval = setInterval(() => {
+        if (Math.random() < 0.7) { // 70% chance to trigger
+            simulateOtherUserPress();
+        }
+    }, Math.random() * 1000 + 667); // Random interval between 0.67-1.67 seconds
+}
+
+// Function to stop simulation
+function stopSimulation() {
+    if (simulationInterval) {
+        clearInterval(simulationInterval);
+        simulationInterval = null;
+    }
+}
+
 // Function to handle tweet hover
 function handleTweetHover(event) {
     // Find the closest article element (tweet)
     const tweet = event.target.closest('article');
+    
+    // Update vignette position
+    const vignette = document.querySelector('.vignette');
+    if (vignette) {
+        const rect = tweet ? tweet.getBoundingClientRect() : null;
+        if (rect) {
+            const x = (rect.left + rect.right) / 2;
+            const y = (rect.top + rect.bottom) / 2;
+            vignette.style.setProperty('--mouse-x', `${x}px`);
+            vignette.style.setProperty('--mouse-y', `${y}px`);
+        }
+    }
     
     // Remove highlight from previous tweet if exists
     if (hoveredTweet && hoveredTweet !== tweet) {
@@ -145,6 +358,8 @@ function handleTweetHover(event) {
         hoveredTweet.style.backgroundColor = '';
         hoveredTweet.style.transition = '';
         hideOverlay();
+        resetActivityLog(); // Reset activity log when hovering away
+        stopSimulation(); // Stop simulation when hovering away
     }
     
     if (tweet) {
@@ -163,7 +378,11 @@ function handleTweetHover(event) {
         }
         glow.classList.add('active');
         
+        // Update token info
+        updateTokenInfo(tweet);
+        
         showOverlay(); // Show the "Press F" text and effects
+        startSimulation(); // Start simulation when hovering over a tweet
         console.log('Hovering over tweet:', tweet);
     }
 }
@@ -175,6 +394,7 @@ function handleKeyPress(event) {
         // If Command (Meta) key is pressed, handle reply
         if (event.metaKey && hoveredTweet) {
             console.log('Command+F pressed, attempting to reply to tweet');
+            addActivityLogEntry('You paid your respects with a solemn reply.');
             
             try {
                 // Find and click the reply button - try multiple possible selectors
@@ -221,22 +441,22 @@ function handleKeyPress(event) {
             }
         } else if (hoveredTweet) {
             // Just F key pressed, show gold border animation
-            hoveredTweet.style.border = 'none'; // Remove blue border
+            fPressCount++;
+            addActivityLogEntry(getRandomMessage(), true);
             
-            // Add rotating border effect
-            let border = hoveredTweet.querySelector('.tweet-border');
-            if (!border) {
-                border = document.createElement('div');
-                border.className = 'tweet-border';
-                hoveredTweet.appendChild(border);
+            // Update respects count in token info
+            const respectsValue = document.querySelector('.token-info-value.respects');
+            if (respectsValue) {
+                respectsValue.textContent = fPressCount;
             }
-            border.classList.add('active');
             
-            // Remove the gold border after animation
+            // Apply the flash animation directly to the tweet
+            hoveredTweet.style.animation = 'flashBorder 0.3s ease-out';
+            
+            // Remove the animation after it completes
             setTimeout(() => {
-                border.classList.remove('active');
-                hoveredTweet.style.border = '2px solid #1DA1F2'; // Restore blue border
-            }, 1000); // Show gold border for 1 second
+                hoveredTweet.style.animation = '';
+            }, 300);
         }
     }
 }
