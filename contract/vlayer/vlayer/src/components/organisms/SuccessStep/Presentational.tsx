@@ -1,5 +1,5 @@
-import { Link } from "react-router";
 import { ArrowTopRightOnSquareIcon } from "@heroicons/react/24/solid";
+import { Link } from "react-router";
 export const SuccessStepPresentational = ({
   tx,
   handle,
@@ -12,12 +12,12 @@ export const SuccessStepPresentational = ({
   return (
     <>
       <p className="text-gray-500">
-        @{handle} was minted to{" "}
+        <span className="font-silkscreen-md text-violet-500">@{handle}</span> was minted to{" "}
         <a
           href={`${blockExplorer}/tx/${tx}`}
           target="_blank"
           rel="noopener noreferrer"
-          className="text-violet-500 underline"
+          className="text-violet-500 underline font-silkscreen-sm"
         >
           {tx.slice(0, 6)}...{tx.slice(-4)}
         </a>

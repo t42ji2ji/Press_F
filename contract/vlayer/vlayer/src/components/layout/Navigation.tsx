@@ -1,17 +1,18 @@
-import * as React from "react";
 import { ChevronLeftIcon } from "@heroicons/react/24/outline";
-import { useCurrentStep } from "../../hooks/useCurentStep";
+import * as React from "react";
 import { useNavigate } from "react-router";
+import { useCurrentStep } from "../../hooks/useCurentStep";
 
 export const Navigation: React.FC = () => {
   const { currentStep } = useCurrentStep();
   const navigate = useNavigate();
   return (
     <nav
-      className="flex gap-10 justify-between max-w-[480px] w-full"
+      className="flex gap-10 justify-between max-w-[480px] w-full "
       style={{ opacity: currentStep?.backUrl ? 1 : 0 }}
     >
       <BackButton
+        className="text-white"
         back={() => {
           if (currentStep?.backUrl) {
             void navigate(currentStep.backUrl);

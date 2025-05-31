@@ -2,13 +2,15 @@
 @tailwind components;
 @tailwind utilities;
 
-.steps .step:after, .steps .step:before{
+.steps .step:after,
+.steps .step:before {
   background-color: #f4f7fb;
   color: #000;
 }
 
-.steps .step-primary + .step-primary:before, .steps .step-primary:after {
-  background-color: #3d1efe;
+.steps .step-primary + .step-primary:before,
+.steps .step-primary:after {
+  background-color: #60e0cd;
   color: #fff;
 }
 
@@ -39,12 +41,25 @@
 }
 
 #nextButton {
-  @apply btn w-[188px] px-4 bg-[#915bf8] rounded-lg border-none text-white hover:bg-[#915bf8]/80 hover:text-white
+  @apply btn w-[188px] px-4 bg-[#60e0cd] rounded-lg border-none text-white hover:bg-[#60e0cd]/80 hover:text-white font-silkscreen;
 }
 
 .header {
-  @apply text-center text-black text-3xl font-bold mt-7;
+  @apply text-center text-black text-3xl font-bold mt-7 font-silkscreen;
   transition: all 0.3s ease-in-out;
+}
+
+/* Silkscreen 字体实用类 */
+.font-silkscreen-lg {
+  @apply font-silkscreen text-2xl font-bold;
+}
+
+.font-silkscreen-md {
+  @apply font-silkscreen text-xl font-normal;
+}
+
+.font-silkscreen-sm {
+  @apply font-silkscreen text-lg font-normal;
 }
 
 .desc {
