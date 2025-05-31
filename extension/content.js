@@ -826,8 +826,8 @@ style.textContent = `
         bottom: 100%;
         left: 50%;
         transform: translateX(-50%);
-        width: 256px;
-        height: 256px;
+        width: 120px;
+        height: 120px;
         background-size: contain;
         background-repeat: no-repeat;
         background-position: center;
