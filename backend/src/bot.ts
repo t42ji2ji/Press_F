@@ -30,25 +30,35 @@ async function startBot() {
     console.log("Getting bot user info...");
     const me = await userClient.v2.me();
     const botId = me.data.id;
+    console.log("Bot ID:", botId);
     let sinceId: string | undefined = undefined;
 
     console.log("Bot started! Polling for mentions...");
 
     while (true) {
+      let sleepMs = 5000; // default sleep 5s
       try {
+        const now = new Date();
+        const fiveMinutesAgo = new Date(now.getTime() - 5 * 60 * 1000);
+        const startTime = fiveMinutesAgo.toISOString();
+
         const mentions = await userClient.v2.userMentionTimeline(botId, {
           "tweet.fields": [
             "referenced_tweets",
             "author_id",
             "in_reply_to_user_id",
+            "created_at",
           ],
           expansions: ["referenced_tweets.id", "author_id"],
           max_results: 50,
-          since_id: sinceId,
+          start_time: startTime,
         });
         if (mentions.data?.data && mentions.data.data.length > 0) {
-          sinceId = mentions.data.data[mentions.data.data.length - 1].id;
-          const tweet = mentions.data.data[mentions.data.data.length - 1];
+          console.log("mentions data:", mentions.data?.data);
+
+          // Get the most recent tweet (first in the array)
+          const tweet = mentions.data.data[0];
+          sinceId = tweet.id;
           if (
             tweet.referenced_tweets?.some(
               (ref: any) => ref.type === "replied_to"
@@ -83,32 +93,6 @@ async function startBot() {
                 throw e;
               }
 
-              // 2. Check if token already exists for this xUrl
-              let tokenExists = false;
-              try {
-                const tokenInfo = await publicClient.readContract({
-                  address: TOKEN_FACTORY_ADDRESS,
-                  abi: TOKEN_FACTORY_ABI,
-                  functionName: "getTokenByXUrl",
-                  args: [xUrl],
-                });
-                if (
-                  tokenInfo &&
-                  tokenInfo.tokenAddress &&
-                  tokenInfo.tokenAddress !==
-                    "0x0000000000000000000000000000000000000000"
-                ) {
-                  tokenExists = true;
-                }
-              } catch (e) {
-                // If it reverts, token does not exist
-                tokenExists = false;
-              }
-              if (tokenExists) {
-                console.log(`Token already exists for xUrl: ${xUrl}`);
-                throw new Error("Token already exists");
-              }
-
               // 3. Deploy token using util
               let hash = "";
               let tokenAddress = "";
@@ -128,12 +112,21 @@ async function startBot() {
             }
           }
         }
-      } catch (error) {
-        console.error("Error processing mentions:", error);
+      } catch (error: any) {
+        if (error.code === 429 && error.rateLimit?.reset) {
+          const now = Math.floor(Date.now() / 1000);
+          const reset = Number(error.rateLimit.reset);
+          const waitSec = Math.max(reset - now, 1);
+          sleepMs = waitSec * 1000;
+          console.warn(
+            `Rate limited. Sleeping for ${waitSec} seconds until reset at ${reset}`
+          );
+        } else {
+          console.error("Error processing mentions:", error);
+        }
       }
-
-      // Sleep for 15 minutes
-      await new Promise((resolve) => setTimeout(resolve, 15 * 60 * 1000));
+      // Sleep for the determined time
+      await new Promise((resolve) => setTimeout(resolve, sleepMs));
     }
   } catch (error) {
     console.error("Error starting bot:", error);
