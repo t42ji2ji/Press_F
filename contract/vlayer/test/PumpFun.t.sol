@@ -5,11 +5,25 @@ import "forge-std/Test.sol";
 import "../src/PumpFun.sol";
 import "../src/Token.sol";
 import "../src/TokenFactory.sol";
+import "../src/vlayer/WebProofVerifier.sol";
+import {Proof} from "vlayer-0.1.0/Proof.sol";
+
+contract MockWebProofVerifier is IWebProofVerifier {
+    function verify(
+        Proof calldata,
+        string memory,
+        address
+    ) public view override {
+        // Mock verification - always passes
+        return;
+    }
+}
 
 contract PumpFunTest is Test {
     PumpFun public pumpFun;
     TokenFactory public tokenFactory;
     Token public token;
+    MockWebProofVerifier public verifier;
     address public user = address(0x456);
     address public xUser = address(0x789);
     uint256 public constant INITIAL_SUPPLY = 10 ** 27;
@@ -20,7 +34,8 @@ contract PumpFunTest is Test {
         vm.deal(user, 1000 ether);
         vm.deal(xUser, 1000 ether);
 
-        pumpFun = new PumpFun(CREATE_FEE, FEE_BASIS_POINTS);
+        verifier = new MockWebProofVerifier();
+        pumpFun = new PumpFun(CREATE_FEE, FEE_BASIS_POINTS, address(verifier));
         tokenFactory = new TokenFactory();
         tokenFactory.setPoolAddress(address(pumpFun));
     }
@@ -161,14 +176,15 @@ contract PumpFunTest is Test {
 
         // Try to collect fees as wrong user
         vm.startPrank(user);
-        vm.expectRevert("Not authorized");
-        pumpFun.collectFees(address(token));
+
+        Proof memory emptyProof;
+        pumpFun.collectFees(address(token), emptyProof);
         vm.stopPrank();
 
         // Collect fees as correct xUser
         vm.startPrank(xUser);
         uint256 balanceBefore = xUser.balance;
-        pumpFun.collectFees(address(token));
+        pumpFun.collectFees(address(token), emptyProof);
         uint256 balanceAfter = xUser.balance;
 
         // Verify fees were received

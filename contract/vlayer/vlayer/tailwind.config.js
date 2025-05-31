@@ -10,7 +10,11 @@ export default {
     "node_modules/react-daisyui/dist/**/*.js",
   ],
   theme: {
-    extend: {},
+    extend: {
+      fontFamily: {
+        silkscreen: ["Silkscreen", "monospace"],
+      },
+    },
   },
   daisyui: {
     themes: [
