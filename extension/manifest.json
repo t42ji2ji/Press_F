@@ -2,7 +2,7 @@
   "manifest_version": 3,
   "name": "Press F",
   "version": "1.0",
-  "description": "Press F to pay respects on Twitter",
+  "description": "Press F to pay respects",
   "permissions": [
     "activeTab"
   ],
@@ -16,5 +16,9 @@
   "icons": {
     "48": "icon48.png",
     "128": "icon128.png"
-  }
+  },
+  "web_accessible_resources": [{
+    "resources": ["images/*"],
+    "matches": ["*://*.twitter.com/*", "*://*.x.com/*"]
+  }]
 } 

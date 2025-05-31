@@ -119,6 +119,7 @@ let tokenInfo = null;
 let fPressCount = 0;
 let lastMessageIndex = -1;
 let simulationInterval = null;
+let hoverTimeout = null;
 
 // Cache for token data
 const tokenDataCache = new Map();
@@ -219,11 +220,89 @@ function createTokenInfo() {
 function createOverlay() {
     const overlay = document.createElement('div');
     overlay.className = 'press-f-overlay';
+    
+    // Get the image URLs
+    const salute1Url = chrome.runtime.getURL('images/salute1.png');
+    const salute2Url = chrome.runtime.getURL('images/salute2.png');
+    
+    // Set the CSS variables for the image URLs
+    document.documentElement.style.setProperty('--salute1-url', `url('${salute1Url}')`);
+    document.documentElement.style.setProperty('--salute2-url', `url('${salute2Url}')`);
+    
     overlay.innerHTML = `
-        <div class="press-f-text">Press F to Create Token</div>
+        <div class="salute-sprite" style="background-image: var(--salute1-url)"></div>
+        <div class="press-f-text">Press <span class="f-key">F</span> to Create Token</div>
     `;
     document.body.appendChild(overlay);
+    
+    // Debug: Check if sprite is created
+    const sprite = overlay.querySelector('.salute-sprite');
+    console.log('Salute sprite created:', sprite);
+    console.log('Sprite background image:', sprite.style.backgroundImage);
+    console.log('Salute1 URL:', salute1Url);
+    console.log('Salute2 URL:', salute2Url);
+    
     return overlay;
+}
+
+// Function to handle tweet hover with debounce
+function handleTweetHover(event) {
+    // Clear any existing timeout
+    if (hoverTimeout) {
+        clearTimeout(hoverTimeout);
+    }
+
+    // Set a new timeout
+    hoverTimeout = setTimeout(() => {
+        // Find the closest article element (tweet)
+        const tweet = event.target.closest('article');
+        
+        // Update vignette position
+        const vignette = document.querySelector('.vignette');
+        if (vignette) {
+            const rect = tweet ? tweet.getBoundingClientRect() : null;
+            if (rect) {
+                const x = (rect.left + rect.right) / 2;
+                const y = (rect.top + rect.bottom) / 2;
+                vignette.style.setProperty('--mouse-x', `${x}px`);
+                vignette.style.setProperty('--mouse-y', `${y}px`);
+            }
+        }
+        
+        // Remove highlight from previous tweet if exists
+        if (hoveredTweet && hoveredTweet !== tweet) {
+            hoveredTweet.style.border = '';
+            hoveredTweet.style.backgroundColor = '';
+            hoveredTweet.style.transition = '';
+            hoveredTweet.style.animation = '';
+            hideOverlay();
+            resetActivityLog(); // Reset activity log when hovering away
+            stopSimulation(); // Stop simulation when hovering away
+        }
+        
+        if (tweet) {
+            hoveredTweet = tweet;
+            // Add highlight effect
+            tweet.style.border = '2px solid #1DA1F2';
+            tweet.style.backgroundColor = 'rgba(29, 161, 242, 0.05)';
+            tweet.style.transition = 'all 0.2s ease';
+            tweet.style.animation = 'pulseBorder 2s infinite';
+            
+            // Add glow effect
+            let glow = tweet.querySelector('.tweet-glow');
+            if (!glow) {
+                glow = document.createElement('div');
+                glow.className = 'tweet-glow';
+                tweet.appendChild(glow);
+            }
+            glow.classList.add('active');
+            
+            // Update token info
+            updateTokenInfo(tweet);
+            
+            showOverlay(); // Show the "Press F" text and effects
+        }
+    }, 150); // 150ms debounce
 }
 
 // Update token info with tweet data
@@ -248,7 +327,16 @@ async function updateTokenInfo(tweet) {
         const timeSinceLastCall = Date.now() - lastCallTime;
         
         if (timeSinceLastCall < CALL_COOLDOWN) {
-            console.log(`In cooldown period (${Math.ceil((CALL_COOLDOWN - timeSinceLastCall) / 1000)}s remaining)`);
+            console.log(`In cooldown period for ${tweetUrl} (${Math.ceil((CALL_COOLDOWN - timeSinceLastCall) / 1000)}s remaining)`);
+            // Use cached data if available during cooldown
+            if (tokenDataCache.has(tweetUrl)) {
+                console.log('Using cached data during cooldown');
+                const cachedData = tokenDataCache.get(tweetUrl);
+                if (cachedData === null) {
+                    throw new Error('No token (cached)');
+                }
+                return handleTokenData(cachedData, tokenInfo, overlay);
+            }
             throw new Error('In cooldown period');
         }
         
@@ -258,7 +346,6 @@ async function updateTokenInfo(tweet) {
             console.log('Using cached token data');
             tokenData = tokenDataCache.get(tweetUrl);
             if (tokenData === null) {
-                // If cached value is null, it means no token was found
                 throw new Error('No token (cached)');
             }
         } else {
@@ -266,6 +353,7 @@ async function updateTokenInfo(tweet) {
             try {
                 // Call the contract to get token info
                 tokenData = await contract.getTokenByXUrl(tweetUrl);
+                console.log('New token data received:', tokenData);
                 // Cache the successful result
                 tokenDataCache.set(tweetUrl, tokenData);
                 // Update last call time
@@ -280,56 +368,66 @@ async function updateTokenInfo(tweet) {
             }
         }
         
-        console.log('Token data:', {
-            tokenAddress: tokenData.tokenAddress,
-            tokenName: tokenData.tokenName,
-            tokenSymbol: tokenData.tokenSymbol,
-        });
-        
-        // Update the token info panel with real data
-        const nameValue = tokenInfo.querySelector('.token-info-row:nth-child(1) .token-info-value');
-        const tickerValue = tokenInfo.querySelector('.token-info-row:nth-child(2) .token-info-value');
-        const contractValue = tokenInfo.querySelector('.token-info-row:nth-child(3) .token-info-value');
-        const respectsValue = tokenInfo.querySelector('.token-info-row:nth-child(4) .token-info-value');
-        
-        if (!nameValue || !tickerValue || !contractValue || !respectsValue) {
-            console.error('Could not find token info elements');
-            throw new Error('Token info elements not found');
-        }
-        
-        nameValue.textContent = tokenData.tokenName;
-        tickerValue.textContent = `$${tokenData.tokenSymbol}`;
-        contractValue.textContent = `${tokenData.tokenAddress.slice(0, 6)}...${tokenData.tokenAddress.slice(-4)}`;
-        respectsValue.textContent = fPressCount;
-
-        // Update overlay text for token existence
-        overlay.innerHTML = `
-            <div class="press-f-text">Press F to Pay Respects</div>
-        `;
-        
-        // Start simulation only if we have a token
-        stopSimulation(); // Ensure any existing simulation is stopped
-        startSimulation();
+        return handleTokenData(tokenData, tokenInfo, overlay);
     } catch (error) {
-        // Handle the no-token case
-        const nameValue = tokenInfo.querySelector('.token-info-row:nth-child(1) .token-info-value');
-        const tickerValue = tokenInfo.querySelector('.token-info-row:nth-child(2) .token-info-value');
-        const contractValue = tokenInfo.querySelector('.token-info-row:nth-child(3) .token-info-value');
-        const respectsValue = tokenInfo.querySelector('.token-info-row:nth-child(4) .token-info-value');
-        
-        if (nameValue) nameValue.textContent = 'No Token';
-        if (tickerValue) tickerValue.textContent = 'N/A';
-        if (contractValue) contractValue.textContent = 'N/A';
-        if (respectsValue) respectsValue.textContent = '0';
-
-        // Update overlay text for no token
-        overlay.innerHTML = `
-            <div class="press-f-text">Press F to Create Token</div>
-        `;
-        
-        // Stop simulation for no token
-        stopSimulation();
+        handleNoToken(tokenInfo, overlay);
     }
+}
+
+// Helper function to handle token data
+function handleTokenData(tokenData, tokenInfo, overlay) {
+    console.log('Handling token data:', {
+        tokenAddress: tokenData.tokenAddress,
+        tokenName: tokenData.tokenName,
+        tokenSymbol: tokenData.tokenSymbol,
+    });
+    
+    // Update the token info panel with real data
+    const nameValue = tokenInfo.querySelector('.token-info-row:nth-child(1) .token-info-value');
+    const tickerValue = tokenInfo.querySelector('.token-info-row:nth-child(2) .token-info-value');
+    const contractValue = tokenInfo.querySelector('.token-info-row:nth-child(3) .token-info-value');
+    const respectsValue = tokenInfo.querySelector('.token-info-row:nth-child(4) .token-info-value');
+    
+    if (!nameValue || !tickerValue || !contractValue || !respectsValue) {
+        console.error('Could not find token info elements');
+        throw new Error('Token info elements not found');
+    }
+    
+    nameValue.textContent = tokenData.tokenName;
+    tickerValue.textContent = `$${tokenData.tokenSymbol}`;
+    contractValue.textContent = `${tokenData.tokenAddress.slice(0, 6)}...${tokenData.tokenAddress.slice(-4)}`;
+    respectsValue.textContent = fPressCount;
+
+    // Update overlay text for token existence
+    overlay.innerHTML = `
+        <div class="salute-sprite" style="background-image: var(--salute1-url)"></div>
+        <div class="press-f-text">Press <span class="f-key">F</span> to Pay Respects</div>
+    `;
+    
+    // Start simulation only if we have a token
+    stopSimulation(); // Ensure any existing simulation is stopped
+    startSimulation();
+}
+
+// Helper function to handle no token case
+function handleNoToken(tokenInfo, overlay) {
+    const nameValue = tokenInfo.querySelector('.token-info-row:nth-child(1) .token-info-value');
+    const tickerValue = tokenInfo.querySelector('.token-info-row:nth-child(2) .token-info-value');
+    const contractValue = tokenInfo.querySelector('.token-info-row:nth-child(3) .token-info-value');
+    const respectsValue = tokenInfo.querySelector('.token-info-row:nth-child(4) .token-info-value');
+    
+    if (nameValue) nameValue.textContent = 'No Token';
+    if (tickerValue) tickerValue.textContent = 'N/A';
+    if (contractValue) contractValue.textContent = 'N/A';
+    if (respectsValue) respectsValue.textContent = '0';
+
+    // Update overlay text for no token
+    overlay.innerHTML = `
+        <div class="press-f-text">Press <span class="f-key">F</span> to Create Token</div>
+    `;
+    
+    // Stop simulation for no token
+    stopSimulation();
 }
 
 // Create and inject the activity log
@@ -549,58 +647,6 @@ function stopSimulation() {
     }
 }
 
-// Function to handle tweet hover
-function handleTweetHover(event) {
-    // Find the closest article element (tweet)
-    const tweet = event.target.closest('article');
-    
-    // Update vignette position
-    const vignette = document.querySelector('.vignette');
-    if (vignette) {
-        const rect = tweet ? tweet.getBoundingClientRect() : null;
-        if (rect) {
-            const x = (rect.left + rect.right) / 2;
-            const y = (rect.top + rect.bottom) / 2;
-            vignette.style.setProperty('--mouse-x', `${x}px`);
-            vignette.style.setProperty('--mouse-y', `${y}px`);
-        }
-    }
-    
-    // Remove highlight from previous tweet if exists
-    if (hoveredTweet && hoveredTweet !== tweet) {
-        hoveredTweet.style.border = '';
-        hoveredTweet.style.backgroundColor = '';
-        hoveredTweet.style.transition = '';
-        hoveredTweet.style.animation = '';
-        hideOverlay();
-        resetActivityLog(); // Reset activity log when hovering away
-        stopSimulation(); // Stop simulation when hovering away
-    }
-    
-    if (tweet) {
-        hoveredTweet = tweet;
-        // Add highlight effect
-        tweet.style.border = '2px solid #1DA1F2';
-        tweet.style.backgroundColor = 'rgba(29, 161, 242, 0.05)';
-        tweet.style.transition = 'all 0.2s ease';
-        tweet.style.animation = 'pulseBorder 2s infinite';
-        
-        // Add glow effect
-        let glow = tweet.querySelector('.tweet-glow');
-        if (!glow) {
-            glow = document.createElement('div');
-            glow.className = 'tweet-glow';
-            tweet.appendChild(glow);
-        }
-        glow.classList.add('active');
-        
-        // Update token info
-        updateTokenInfo(tweet);
-        
-        showOverlay(); // Show the "Press F" text and effects
-    }
-}
-
 // Function to handle the F key press
 function handleKeyPress(event) {
     // Check if F key was pressed
@@ -608,6 +654,14 @@ function handleKeyPress(event) {
         // Get the current state from the overlay text
         const overlay = document.querySelector('.press-f-overlay');
         const isTokenExists = overlay && overlay.textContent.includes('Pay Respects');
+
+        // Flash the instruction box
+        if (overlay) {
+            overlay.classList.add('flash');
+            setTimeout(() => {
+                overlay.classList.remove('flash');
+            }, 300);
+        }
 
         if (isTokenExists) {
             // F key pressed for existing token, show gold border animation
@@ -622,6 +676,16 @@ function handleKeyPress(event) {
             
             // Apply the flash animation directly to the tweet
             hoveredTweet.style.animation = 'flashBorder 0.3s ease-out';
+            
+            // Trigger salute animation
+            const saluteSprite = overlay.querySelector('.salute-sprite');
+            if (saluteSprite) {
+                console.log('Triggering salute animation');
+                saluteSprite.style.backgroundImage = 'var(--salute2-url)';
+                setTimeout(() => {
+                    saluteSprite.style.backgroundImage = 'var(--salute1-url)';
+                }, 300);
+            }
             
             // Remove the animation after it completes and restore the pulse
             setTimeout(() => {
@@ -657,7 +721,7 @@ function handleKeyPress(event) {
                         
                         if (replyInput) {
                             console.log('Found reply input, inserting text...');
-                            simulateTyping(replyInput, '@payrespectbot');
+                            simulateTyping(replyInput, '@payrespectsbot');
 
                             // Wait a moment for the reply button to become enabled
                             setTimeout(() => {
@@ -703,9 +767,11 @@ initializeContract().then(() => {
     console.error('Failed to initialize contract:', error);
 });
 
-// Add the new pulse animation style
+// Add the new pulse animation style and font
 const style = document.createElement('style');
 style.textContent = `
+    @import url('https://fonts.googleapis.com/css2?family=Silkscreen&display=swap');
+
     @keyframes pulseBorder {
         0% {
             border-color: #1DA1F2;
@@ -734,6 +800,63 @@ style.textContent = `
             border-color: #1DA1F2;
             box-shadow: 0 0 0 0 rgba(255, 215, 0, 0);
         }
+    }
+
+    .press-f-overlay {
+        position: fixed;
+        bottom: 40px;
+        left: 50%;
+        transform: translateX(-50%);
+        display: flex;
+        justify-content: center;
+        align-items: center;
+        z-index: 9999;
+        background: rgba(0, 0, 0, 0.7);
+        padding: 8px 40px;
+        border-radius: 10px;
+        min-width: 300px;
+        height: 40px;
+        line-height: 40px;
+        border: 2px solid #1DA1F2;
+        transition: all 0.2s ease;
+    }
+
+    .salute-sprite {
+        position: absolute;
+        bottom: 100%;
+        left: 50%;
+        transform: translateX(-50%);
+        width: 256px;
+        height: 256px;
+        background-size: contain;
+        background-repeat: no-repeat;
+        background-position: center;
+        transition: background-image 0.1s ease;
+    }
+
+    .salute-sprite.salute {
+        background-image: var(--salute2-url);
+    }
+
+    .press-f-overlay.flash {
+        animation: flashBorder 0.3s ease-out;
+    }
+
+    .press-f-text {
+        font-family: 'Silkscreen', monospace;
+        font-size: 24px;
+        color: #1DA1F2;
+        text-shadow: 2px 2px 4px rgba(0, 0, 0, 0.3);
+        text-align: center;
+        white-space: nowrap;
+        margin: 0;
+        padding: 0;
+    }
+
+    .press-f-text .f-key {
+        color: #FFD700;
+        font-weight: bold;
+        text-shadow: 2px 2px 4px rgba(255, 215, 0, 0.3);
     }
 `;
 document.head.appendChild(style); 
