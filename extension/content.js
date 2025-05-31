@@ -1,3 +1,117 @@
+// Get ethers from the globally available object
+const loadEthers = async () => {
+    try {
+        if (typeof ethers === 'undefined') {
+            throw new Error('Ethers.js not found');
+        }
+        console.log('Ethers.js loaded successfully');
+        return ethers;
+    } catch (error) {
+        console.error('Failed to load ethers.js:', error);
+        return null;
+    }
+};
+
+// Contract ABI
+const CONTRACT_ABI = [
+    {
+        "type": "function",
+        "name": "getTokenByXUrl",
+        "inputs": [
+            {
+                "name": "xUrl",
+                "type": "string",
+                "internalType": "string"
+            }
+        ],
+        "outputs": [
+            {
+                "name": "",
+                "type": "tuple",
+                "internalType": "struct TokenFactory.TokenStructure",
+                "components": [
+                    {
+                        "name": "tokenAddress",
+                        "type": "address",
+                        "internalType": "address"
+                    },
+                    {
+                        "name": "tokenName",
+                        "type": "string",
+                        "internalType": "string"
+                    },
+                    {
+                        "name": "tokenSymbol",
+                        "type": "string",
+                        "internalType": "string"
+                    },
+                    {
+                        "name": "totalSupply",
+                        "type": "uint256",
+                        "internalType": "uint256"
+                    },
+                    {
+                        "name": "xUrl",
+                        "type": "string",
+                        "internalType": "string"
+                    },
+                    {
+                        "name": "xUser",
+                        "type": "string",
+                        "internalType": "string"
+                    }
+                ]
+            }
+        ],
+        "stateMutability": "view"
+    }
+];
+
+// Contract address
+const CONTRACT_ADDRESS = "0xe7D3930eabD922202B7f9C11084AB4D91444Ba2A";
+
+// Initialize contract
+let contract = null;
+let provider = null;
+
+// Function to initialize the contract
+const initializeContract = async () => {
+    const ethers = await loadEthers();
+    if (!ethers) {
+        console.error('Failed to load ethers.js');
+        return;
+    }
+
+    try {
+        // Use Optimism Sepolia RPC endpoint
+        const optimismSepoliaUrl = 'https://sepolia.optimism.io';
+        console.log('Attempting to connect to Optimism Sepolia:', optimismSepoliaUrl);
+        
+        provider = new ethers.providers.JsonRpcProvider(optimismSepoliaUrl);
+        
+        // Test the connection by getting the latest block number
+        const blockNumber = await provider.getBlockNumber();
+        console.log('Successfully connected to Optimism Sepolia. Latest block:', blockNumber);
+        
+        // Create contract instance
+        contract = new ethers.Contract(CONTRACT_ADDRESS, CONTRACT_ABI, provider);
+        console.log('Contract initialized successfully:', contract);
+        
+        // Test the contract connection
+        const network = await provider.getNetwork();
+        console.log('Connected to network:', network);
+    } catch (error) {
+        console.error('Failed to initialize contract. Full error:', error);
+        if (error.code === 'NETWORK_ERROR') {
+            console.error('Network error details:', {
+                message: error.message,
+                code: error.code,
+                event: error.event
+            });
+        }
+    }
+};
+
 // Track the currently hovered tweet
 let hoveredTweet = null;
 let activityLog = null;
@@ -71,25 +185,23 @@ function createTokenInfo() {
         tokenInfo.className = 'token-info';
         tokenInfo.innerHTML = `
             <div class="token-info-header">Token Info</div>
-            <div class="token-info-row">
-                <span class="token-info-label">Name</span>
-                <span class="token-info-value">Respect</span>
-            </div>
-            <div class="token-info-row">
-                <span class="token-info-label">Ticker</span>
-                <span class="token-info-value">$RSPCT</span>
-            </div>
-            <div class="token-info-row">
-                <span class="token-info-label">Price</span>
-                <span class="token-info-value">$0.420</span>
-            </div>
-            <div class="token-info-row">
-                <span class="token-info-label">Contract</span>
-                <span class="token-info-value contract">0x1234...5678</span>
-            </div>
-            <div class="token-info-row">
-                <span class="token-info-label">Respects</span>
-                <span class="token-info-value respects">0</span>
+            <div class="token-info-content">
+                <div class="token-info-row">
+                    <span class="token-info-label">Name</span>
+                    <span class="token-info-value">N/A</span>
+                </div>
+                <div class="token-info-row">
+                    <span class="token-info-label">Ticker</span>
+                    <span class="token-info-value">N/A</span>
+                </div>
+                <div class="token-info-row">
+                    <span class="token-info-label">Contract</span>
+                    <span class="token-info-value contract">N/A</span>
+                </div>
+                <div class="token-info-row">
+                    <span class="token-info-label">Respects</span>
+                    <span class="token-info-value respects">0</span>
+                </div>
             </div>
         `;
         document.body.appendChild(tokenInfo);
@@ -97,13 +209,85 @@ function createTokenInfo() {
     return tokenInfo;
 }
 
+// Create and inject the overlay element
+function createOverlay() {
+    const overlay = document.createElement('div');
+    overlay.className = 'press-f-overlay';
+    overlay.innerHTML = `
+        <div class="press-f-text">Press F to Create Token</div>
+    `;
+    document.body.appendChild(overlay);
+    return overlay;
+}
+
 // Update token info with tweet data
-function updateTokenInfo(tweet) {
+async function updateTokenInfo(tweet) {
     const tokenInfo = createTokenInfo();
+    const overlay = document.querySelector('.press-f-overlay') || createOverlay();
     
-    // For now, we'll just update the respects count
-    const respectsValue = tokenInfo.querySelector('.token-info-value.respects');
-    respectsValue.textContent = fPressCount;
+    try {
+        // Get the tweet URL from the tweet element's href
+        const tweetLink = tweet.querySelector('a[href*="/status/"]');
+        if (!tweetLink) {
+            console.error('Could not find tweet link');
+            throw new Error('Invalid tweet element');
+        }
+        
+        // Get the full URL from the href attribute
+        const tweetUrl = tweetLink.href;
+        console.log('Tweet URL from element:', tweetUrl);
+        
+        // Call the contract to get token info
+        const tokenData = await contract.getTokenByXUrl(tweetUrl);
+        console.log('Token data received from contract:', {
+            tokenAddress: tokenData.tokenAddress,
+            tokenName: tokenData.tokenName,
+            tokenSymbol: tokenData.tokenSymbol,
+        });
+        
+        // Update the token info panel with real data
+        const nameValue = tokenInfo.querySelector('.token-info-row:nth-child(1) .token-info-value');
+        const tickerValue = tokenInfo.querySelector('.token-info-row:nth-child(2) .token-info-value');
+        const contractValue = tokenInfo.querySelector('.token-info-row:nth-child(3) .token-info-value');
+        const respectsValue = tokenInfo.querySelector('.token-info-row:nth-child(4) .token-info-value');
+        
+        if (!nameValue || !tickerValue || !contractValue || !respectsValue) {
+            console.error('Could not find token info elements');
+            throw new Error('Token info elements not found');
+        }
+        
+        nameValue.textContent = tokenData.tokenName;
+        tickerValue.textContent = `$${tokenData.tokenSymbol}`;
+        contractValue.textContent = `${tokenData.tokenAddress.slice(0, 6)}...${tokenData.tokenAddress.slice(-4)}`;
+        respectsValue.textContent = fPressCount;
+
+        // Update overlay text for token existence
+        overlay.innerHTML = `
+            <div class="press-f-text">Press F to Pay Respects</div>
+        `;
+        
+        // Start simulation for token existence
+        startSimulation();
+    } catch (error) {
+        // Handle the no-token case
+        const nameValue = tokenInfo.querySelector('.token-info-row:nth-child(1) .token-info-value');
+        const tickerValue = tokenInfo.querySelector('.token-info-row:nth-child(2) .token-info-value');
+        const contractValue = tokenInfo.querySelector('.token-info-row:nth-child(3) .token-info-value');
+        const respectsValue = tokenInfo.querySelector('.token-info-row:nth-child(4) .token-info-value');
+        
+        if (nameValue) nameValue.textContent = 'No Token';
+        if (tickerValue) tickerValue.textContent = 'N/A';
+        if (contractValue) contractValue.textContent = 'N/A';
+        if (respectsValue) respectsValue.textContent = '0';
+
+        // Update overlay text for no token
+        overlay.innerHTML = `
+            <div class="press-f-text">Press F to Create Token</div>
+        `;
+        
+        // Stop simulation for no token
+        stopSimulation();
+    }
 }
 
 // Create and inject the activity log
@@ -166,18 +350,6 @@ function addActivityLogEntry(message, isFPress = false, isRespectMessage = false
         entries[entries.length - 1].remove();
         entries[entries.length - 2].remove();
     }
-}
-
-// Create and inject the overlay element
-function createOverlay() {
-    const overlay = document.createElement('div');
-    overlay.className = 'press-f-overlay';
-    overlay.innerHTML = `
-        <div class="press-f-text">Press F to Pay Respects</div>
-        <div class="press-f-text command">Command+F to Establish Memorial</div>
-    `;
-    document.body.appendChild(overlay);
-    return overlay;
 }
 
 // Create and inject the vignette
@@ -357,6 +529,7 @@ function handleTweetHover(event) {
         hoveredTweet.style.border = '';
         hoveredTweet.style.backgroundColor = '';
         hoveredTweet.style.transition = '';
+        hoveredTweet.style.animation = '';
         hideOverlay();
         resetActivityLog(); // Reset activity log when hovering away
         stopSimulation(); // Stop simulation when hovering away
@@ -368,6 +541,7 @@ function handleTweetHover(event) {
         tweet.style.border = '2px solid #1DA1F2';
         tweet.style.backgroundColor = 'rgba(29, 161, 242, 0.05)';
         tweet.style.transition = 'all 0.2s ease';
+        tweet.style.animation = 'pulseBorder 2s infinite';
         
         // Add glow effect
         let glow = tweet.querySelector('.tweet-glow');
@@ -383,21 +557,42 @@ function handleTweetHover(event) {
         
         showOverlay(); // Show the "Press F" text and effects
         startSimulation(); // Start simulation when hovering over a tweet
-        console.log('Hovering over tweet:', tweet);
     }
 }
 
 // Function to handle the F key press
 function handleKeyPress(event) {
     // Check if F key was pressed
-    if (event.key.toLowerCase() === 'f') {
-        // If Command (Meta) key is pressed, handle reply
-        if (event.metaKey && hoveredTweet) {
-            console.log('Command+F pressed, attempting to reply to tweet');
-            addActivityLogEntry('You paid your respects with a solemn reply.');
+    if (event.key.toLowerCase() === 'f' && hoveredTweet) {
+        // Get the current state from the overlay text
+        const overlay = document.querySelector('.press-f-overlay');
+        const isTokenExists = overlay && overlay.textContent.includes('Pay Respects');
+
+        if (isTokenExists) {
+            // F key pressed for existing token, show gold border animation
+            fPressCount++;
+            addActivityLogEntry(getRandomMessage(), true);
+            
+            // Update respects count in token info
+            const respectsValue = document.querySelector('.token-info-value.respects');
+            if (respectsValue) {
+                respectsValue.textContent = fPressCount;
+            }
+            
+            // Apply the flash animation directly to the tweet
+            hoveredTweet.style.animation = 'flashBorder 0.3s ease-out';
+            
+            // Remove the animation after it completes and restore the pulse
+            setTimeout(() => {
+                hoveredTweet.style.animation = 'pulseBorder 2s infinite';
+            }, 300);
+        } else {
+            // F key pressed for no token, initiate token creation
+            console.log('F pressed, attempting to create token');
+            addActivityLogEntry('Initiating token creation...');
             
             try {
-                // Find and click the reply button - try multiple possible selectors
+                // Find and click the reply button
                 const replyButton = hoveredTweet.querySelector('[data-testid="reply"]') || 
                                   hoveredTweet.querySelector('[aria-label="Reply"]') ||
                                   hoveredTweet.querySelector('div[role="button"][aria-label*="Reply"]');
@@ -428,7 +623,7 @@ function handleKeyPress(event) {
                                 } else {
                                     console.error('Could not find send button');
                                 }
-                            }, 1000); // Increased delay to ensure typing is complete
+                            }, 1000);
                         } else {
                             console.error('Could not find reply input box');
                         }
@@ -439,24 +634,6 @@ function handleKeyPress(event) {
             } catch (error) {
                 console.error('Error in Press F extension:', error);
             }
-        } else if (hoveredTweet) {
-            // Just F key pressed, show gold border animation
-            fPressCount++;
-            addActivityLogEntry(getRandomMessage(), true);
-            
-            // Update respects count in token info
-            const respectsValue = document.querySelector('.token-info-value.respects');
-            if (respectsValue) {
-                respectsValue.textContent = fPressCount;
-            }
-            
-            // Apply the flash animation directly to the tweet
-            hoveredTweet.style.animation = 'flashBorder 0.3s ease-out';
-            
-            // Remove the animation after it completes
-            setTimeout(() => {
-                hoveredTweet.style.animation = '';
-            }, 300);
         }
     }
 }
@@ -465,5 +642,44 @@ function handleKeyPress(event) {
 document.addEventListener('mouseover', handleTweetHover);
 document.addEventListener('keydown', handleKeyPress);
 
-// Log that the extension is active
-console.log('Press F extension is active on', window.location.hostname); 
+// Initialize contract when extension loads
+initializeContract().then(() => {
+    console.log('Press F extension is active on', window.location.hostname);
+}).catch(error => {
+    console.error('Failed to initialize contract:', error);
+});
+
+// Add the new pulse animation style
+const style = document.createElement('style');
+style.textContent = `
+    @keyframes pulseBorder {
+        0% {
+            border-color: #1DA1F2;
+            box-shadow: 0 0 0 0 rgba(29, 161, 242, 0.4);
+        }
+        70% {
+            border-color: #1DA1F2;
+            box-shadow: 0 0 0 10px rgba(29, 161, 242, 0);
+        }
+        100% {
+            border-color: #1DA1F2;
+            box-shadow: 0 0 0 0 rgba(29, 161, 242, 0);
+        }
+    }
+    
+    @keyframes flashBorder {
+        0% {
+            border-color: #1DA1F2;
+            box-shadow: 0 0 0 0 rgba(255, 215, 0, 0.8);
+        }
+        50% {
+            border-color: #FFD700;
+            box-shadow: 0 0 20px 10px rgba(255, 215, 0, 0.4);
+        }
+        100% {
+            border-color: #1DA1F2;
+            box-shadow: 0 0 0 0 rgba(255, 215, 0, 0);
+        }
+    }
+`;
+document.head.appendChild(style); 
