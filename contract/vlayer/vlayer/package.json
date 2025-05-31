@@ -1,5 +1,5 @@
 {
-  "name": "simple-web-proof",
+  "name": "simple-web-proof-x",
   "type": "module",
   "scripts": {
     "devnet:up": "docker compose --file docker-compose.devnet.yaml up -d",
