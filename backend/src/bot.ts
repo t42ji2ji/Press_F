@@ -121,10 +121,10 @@ async function startBot() {
                 throw e;
               }
 
-              // 4. Reply to user
-              const replyText = `Your token is deployed!\nName: ${name}\nSymbol: ${symbol}\nAddress: ${tokenAddress}`;
+              // 4. Reply to user with emojis
+              const replyText = `🚀 Your token is live!\n\n💎 Name: ${name}\n💫 Symbol: ${symbol}\n🔗 Address: ${tokenAddress}\n\nLFG! 🚀`;
               await userClient.v2.reply(replyText, tweet.id);
-              console.log("Replied to user");
+              console.log("✨ Replied to user with token details");
             }
           }
         }
