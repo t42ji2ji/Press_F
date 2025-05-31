@@ -9,7 +9,7 @@ import {
 
 import { useLocalStorage } from "usehooks-ts";
 
-import pumpFunArtifact from "../../../../../out/PumpFun.sol/PumpFun.json";
+import pumpFunArtifact from "../../../../../artifacts/PumpFun.json";
 import { ensureBalance } from "../../../utils/ethFaucet";
 import { MintStepPresentational } from "./Presentational";
 

@@ -1,5 +1,5 @@
-import proverSpec from "../out/WebProofProver.sol/WebProofProver";
-import verifierSpec from "../out/WebProofVerifier.sol/WebProofVerifier";
+import proverSpec from "../artifacts/WebProofProver";
+import verifierSpec from "../artifacts/WebProofVerifier";
 import {
   deployVlayerContracts,
   writeEnvVariables,

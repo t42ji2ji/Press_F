@@ -1,8 +1,8 @@
 import { createVlayerClient } from "@vlayer/sdk";
 import * as assert from "assert";
 import { encodePacked, keccak256 } from "viem";
-import proverSpec from "../out/WebProofProver.sol/WebProofProver";
-import verifierSpec from "../out/WebProofVerifier.sol/WebProofVerifier";
+import proverSpec from "../artifacts/WebProofProver";
+import verifierSpec from "../artifacts/WebProofVerifier";
 import web_proof from "../testdata/web_proof.json";
 import web_proof_invalid_signature from "../testdata/web_proof_invalid_notary_pub_key.json";
 
