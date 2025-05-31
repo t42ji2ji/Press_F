@@ -1,15 +1,16 @@
-import { steps } from "./utils/steps";
-import { WagmiProvider } from "wagmi";
-import { ProofProvider } from "@vlayer/react";
-import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
-import { BrowserRouter, Routes, Route } from "react-router";
-import { Layout } from "./components/layout/Layout";
-import { createAppKit } from "@reown/appkit/react";
+import { NotificationProvider } from "@blockscout/app-sdk";
 import { WagmiAdapter } from "@reown/appkit-adapter-wagmi";
-import { Chain } from "viem";
-import { ErrorBoundary } from "react-error-boundary";
-import { AppErrorBoundaryComponent } from "./components/layout/ErrorBoundary";
+import { createAppKit } from "@reown/appkit/react";
+import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
+import { ProofProvider } from "@vlayer/react";
 import { getChainSpecs } from "@vlayer/sdk";
+import { ErrorBoundary } from "react-error-boundary";
+import { BrowserRouter, Route, Routes } from "react-router";
+import { Chain } from "viem";
+import { WagmiProvider } from "wagmi";
+import { AppErrorBoundaryComponent } from "./components/layout/ErrorBoundary";
+import { Layout } from "./components/layout/Layout";
+import { steps } from "./utils/steps";
 
 const queryClient = new QueryClient();
 const appKitProjectId = `0716afdbbb2cc3df69721a879b92ad5b`;
@@ -67,21 +68,23 @@ const App = () => {
               token: import.meta.env.VITE_VLAYER_API_TOKEN,
             }}
           >
-            <BrowserRouter>
-              <ErrorBoundary FallbackComponent={AppErrorBoundaryComponent}>
-                <Routes>
-                  <Route path="/" element={<Layout />}>
-                    {steps.map((step) => (
-                      <Route
-                        key={step.path}
-                        path={step.path}
-                        element={<step.component />}
-                      />
-                    ))}
-                  </Route>
-                </Routes>
-              </ErrorBoundary>
-            </BrowserRouter>
+            <NotificationProvider>
+              <BrowserRouter>
+                <ErrorBoundary FallbackComponent={AppErrorBoundaryComponent}>
+                  <Routes>
+                    <Route path="/" element={<Layout />}>
+                      {steps.map((step) => (
+                        <Route
+                          key={step.path}
+                          path={step.path}
+                          element={<step.component />}
+                        />
+                      ))}
+                    </Route>
+                  </Routes>
+                </ErrorBoundary>
+              </BrowserRouter>
+            </NotificationProvider>
           </ProofProvider>
         </QueryClientProvider>
       </WagmiProvider>
