@@ -3,6 +3,8 @@ pragma solidity ^0.8.24;
 
 import "@openzeppelin/contracts/utils/ReentrancyGuard.sol";
 import "@openzeppelin/contracts/token/ERC20/IERC20.sol";
+import "./vlayer/WebProofVerifier.sol";
+import {Proof} from "vlayer-0.1.0/Proof.sol";
 
 interface IToken {
     function xUser() external view returns (string memory);
@@ -54,6 +56,7 @@ contract PumpFun is ReentrancyGuard {
     uint256 private createFee;
 
     IUniswapV2Router02 private uniswapV2Router;
+    WebProofVerifier public verifier;
 
     struct Profile {
         address user;
@@ -99,14 +102,15 @@ contract PumpFun is ReentrancyGuard {
         _;
     }
 
-    constructor(uint256 feeAmt, uint256 basisFee) {
+    constructor(uint256 feeAmt, uint256 basisFee, address _verifier) {
         owner = msg.sender;
         createFee = feeAmt;
         feeBasisPoint = basisFee;
-        initialVirtualTokenReserves = 1_073_000_191 * 10 ** 18; // 1,073,000,191 tokens
-        initialVirtualEthReserves = 30 * 10 ** 18; // 30 ETH
-        tokenTotalSupply = 1_000_000_000 * 10 ** 18; // 1 billion tokens
-        mcapLimit = 85 * 10 ** 18; // 85 ETH market cap limit (approximately $69,000)
+        initialVirtualTokenReserves = 1_073_000_191 * 10 ** 18;
+        initialVirtualEthReserves = 30 * 10 ** 18;
+        tokenTotalSupply = 1_000_000_000 * 10 ** 18;
+        mcapLimit = 85 * 10 ** 18;
+        verifier = WebProofVerifier(_verifier);
     }
 
     function createPool(address token, uint256 amount) public payable {
@@ -284,7 +288,7 @@ contract PumpFun is ReentrancyGuard {
         );
     }
 
-    function collectFees(address token) public {
+    function collectFees(address token, Proof calldata proof) public {
         Token storage tokenCurve = bondingCurve[token];
         string memory xUser = IToken(token).xUser();
         require(
@@ -292,6 +296,9 @@ contract PumpFun is ReentrancyGuard {
             "Not authorized"
         );
         require(tokenCurve.collectedFees > 0, "No fees to collect");
+
+        // Verify the proof
+        verifier.verify(proof, xUser, msg.sender);
 
         uint256 amount = tokenCurve.collectedFees;
         tokenCurve.collectedFees = 0;
