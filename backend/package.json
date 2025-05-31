@@ -1,0 +1,23 @@
+{
+  "name": "backend",
+  "version": "1.0.0",
+  "description": "Twitter bot for Press F project",
+  "main": "dist/bot.js",
+  "scripts": {
+    "build": "tsc",
+    "start": "node dist/bot.js",
+    "dev": "ts-node src/bot.ts",
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "packageManager": "pnpm@10.10.0",
+  "dependencies": {
+    "@types/node": "^22.15.29",
+    "dotenv": "^16.5.0",
+    "ts-node": "^10.9.2",
+    "twitter-api-v2": "^1.23.2",
+    "typescript": "^5.8.3"
+  }
+}
