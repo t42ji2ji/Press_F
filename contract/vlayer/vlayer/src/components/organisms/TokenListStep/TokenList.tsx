@@ -294,15 +294,7 @@ export const TokenList = () => {
                 ))}
             </div>
 
-            {/* Footer */}
-            <div className="border-t border-gray-700/50 px-6 py-4 text-center bg-gray-900/30">
-                <Link
-                    to="welcome"
-                    className="inline-block bg-gradient-to-r from-green-600 to-emerald-600 hover:from-green-500 hover:to-emerald-500 text-white px-6 py-2 rounded-lg font-semibold transition-all duration-300 transform hover:scale-105 shadow-lg hover:shadow-green-500/50"
-                >
-                    ➕ Create New Token
-                </Link>
-            </div>
+
         </div>
     );
 }; 
