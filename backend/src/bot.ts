@@ -3,67 +3,92 @@ import dotenv from "dotenv";
 
 dotenv.config();
 
-// Initialize Twitter client
-const client = new TwitterApi({
+// For polling/searching (OAuth 2.0 Bearer Token)
+const appClient = new TwitterApi(process.env.TWITTER_BEARER_TOKEN!);
+
+// For posting/replying as the bot (OAuth 1.0a User Context)
+const userClient = new TwitterApi({
   appKey: process.env.TWITTER_API_KEY!,
   appSecret: process.env.TWITTER_API_SECRET!,
   accessToken: process.env.TWITTER_ACCESS_TOKEN!,
   accessSecret: process.env.TWITTER_ACCESS_SECRET!,
 });
 
-// Create a stream to listen for mentions
+// Poll mentions timeline
 async function startBot() {
   try {
-    // Get the bot's user ID
-    const me = await client.v2.me();
+    console.log("Getting bot user info...");
+    const me = await userClient.v2.me();
     const botId = me.data.id;
+    console.log("Bot ID:", botId);
+    let sinceId: string | undefined = undefined;
 
-    // Create a stream for mentions
-    const stream = await client.v2.searchStream({
-      "tweet.fields": ["referenced_tweets", "author_id", "in_reply_to_user_id"],
-      expansions: ["referenced_tweets.id", "author_id"],
-    });
+    console.log("Bot started! Polling for mentions...");
 
-    console.log("Bot started! Listening for mentions...");
-
-    // Handle incoming tweets
-    stream.on("data", async (tweet) => {
+    setInterval(async () => {
       try {
-        // Check if the tweet is a reply and mentions our bot
-        if (
-          tweet.data.referenced_tweets?.some((ref: any) => ref.type === "replied_to")
-        ) {
-          // Get the original tweet (the one being replied to)
-          const originalTweetId = tweet.data.referenced_tweets.find(
-            (ref: any) => ref.type === "replied_to"
-          )?.id;
+        const mentions = await userClient.v2.userMentionTimeline(botId, {
+          "tweet.fields": [
+            "referenced_tweets",
+            "author_id",
+            "in_reply_to_user_id",
+          ],
+          expansions: ["referenced_tweets.id", "author_id"],
+          max_results: 10,
+          since_id: sinceId,
+        });
+        console.log("Got mentions");
 
-          if (originalTweetId) {
-            // Fetch the original tweet
-            const originalTweet = await client.v2.singleTweet(originalTweetId, {
-              "tweet.fields": ["author_id"],
-              expansions: ["author_id"],
-            });
+        if (mentions.data?.data && mentions.data.data.length > 0) {
+          console.log("Found mentions:", mentions.data.data.length);
 
-            if (originalTweet.data) {
-              const originalAuthor = originalTweet.includes?.users?.[0];
+          // Update sinceId to the newest mention
+          sinceId = mentions.data.data[0].id;
 
-              // Construct the reply message
-              const replyText = `Original tweet by @${originalAuthor?.username}:\nhttps://twitter.com/${originalAuthor?.username}/status/${originalTweetId}`;
+          for (const tweet of mentions.data.data) {
+            console.log("Processing tweet:", tweet.id, "data:", tweet);
 
-              // Reply to the user
-              await client.v2.reply(replyText, tweet.data.id);
+            // Check if the tweet is a reply
+            if (
+              tweet.referenced_tweets?.some(
+                (ref: any) => ref.type === "replied_to"
+              )
+            ) {
+              const originalTweetId = tweet.referenced_tweets.find(
+                (ref: any) => ref.type === "replied_to"
+              )?.id;
+
+              if (originalTweetId) {
+                // Fetch the original tweet (with app context)
+                console.log("Getting original tweet");
+                const originalTweet = await appClient.v2.singleTweet(
+                  originalTweetId,
+                  {
+                    "tweet.fields": ["author_id"],
+                    expansions: ["author_id"],
+                  }
+                );
+                console.log("Got original tweet");
+
+                if (originalTweet.data) {
+                  const originalAuthor = originalTweet.includes?.users?.[0];
+
+                  // Construct the reply message
+                  const replyText = `Thank you @${originalAuthor?.username} for using the bot! The CA is`;
+
+                  // Reply to the user (with user context)
+                  console.log("Replying to user");
+                  await userClient.v2.reply(replyText, tweet.id);
+                  console.log("Replied to user");
+                }
+              }
             }
           }
         }
       } catch (error) {
-        console.error("Error processing tweet:", error);
+        console.error("Error processing mentions:", error);
       }
-    });
-
-    stream.on("error", (error) => {
-      console.error("Stream error:", error);
-    });
+    }, 3 * 1000); // Poll every 3 seconds
   } catch (error) {
     console.error("Error starting bot:", error);
   }
