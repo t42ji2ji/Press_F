@@ -1,38 +1,36 @@
 # 🕯️ Press F (to pay respects)
 
-**Press F** is a decentralized meme protocol that turns viral tweets into tradable tokens — and finally gives credit where it's due.
+**Press F** is a decentralized protocol for turning viral tweets into on-chain tokens — a new way to capture, trade, and reward internet attention, and finally gives credit where it's due.
 
-At its core, Press F is a system that lets anyone instantly deploy a memecoin tied to a specific tweet. The original tweet author can later prove authorship and **claim a share of the token's transaction fees** — a fairer, more respectful memecoin model.
+With one keystroke (you guessed it, press F), users can instantly deploy a token tied to any tweet. The original author can later prove authorship using ZK verification and claim a share of the token’s fees — ensuring creators benefit if and when their content goes viral.
 
 ## 🧩 What's in the system?
 
 - **Chrome Extension**:  
-    Lets users interact with tweets directly. Hover over any post on Twitter, press `F`, and automatically reply with `@payrespectsbot`.
+    Hover over any tweet. Press `F`. Automatically reply with `@payrespectsbot` which triggers token creation.
 
 - **Tag Bot** (`@payrespectsbot`):  
-    Listens for these tags. When triggered, it:
+    Listens for tags. When triggered, it:
+    1. Deploys a unique token tied to the tweet
+    2. Replies with the token contract address
 
-    1. Deploys a new memecoin tied to the tweet
-    2. Replies with the token's contract address
-
-- **Token Creation & Registry**:  
-    Each token is uniquely tied to a tweet. This creates a canonical "official coin" for that post.
+- **Token Registry**:  
+    Each coin is canonically linked to one tweet. This creates a "tradable attention asset" for that post.
 
 - **ZK Poster Verification**:  
-    The original tweet author can use **zero-knowledge proof** to demonstrate they control the account that posted the tweet — and claim a portion of the token's transaction fees.  
-No centralized verification is required — just on-chain proof of authorship.
+    The original poster can cryptographically prove authorship via ZK and claim a cut of transaction fees. There is no centralized gatekeeping.
 
 ## 💡 Why "Pay Respects"?
 
-In today's memecoin world, viral content often gets used and monetized by others, with the original creators left out.
+In today's memecoin world, iral content drives value in crypto — but creators rarely benefit.
 
 Press F flips the dynamic:
 
-- Anyone can spin up a coin with one keypress
-- The memecoin may still spread organically
-- **The poster gets rewarded** if it pops off
+- Memecoins emerge organically from viral moments
+- Anyone can mint a coin for a tweet
+- If it pops off, the creator shares in the upside
 
-It's a remix of meme culture, cryptoeconomics, and attribution — powered by trustless tech.
+This isn’t just meme culture. It’s attribution economics, powered by trustless tech.
 
 ## 🛠️ How It Works
 
@@ -40,7 +38,7 @@ It's a remix of meme culture, cryptoeconomics, and attribution — powered by tr
 2. The extension replies with `@payrespectsbot`
 3. The bot:
     - Deploys a memecoin tied to that tweet
-    - Replies with `"contract deployed, ca: [address]"`
+    - Replies with `"token live; ca: [address]"`
 4. The original poster can:
     - Visit the redemption platform
     - Prove ownership using ZK verification

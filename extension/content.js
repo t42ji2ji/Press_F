@@ -235,13 +235,7 @@ function createOverlay() {
     `;
     document.body.appendChild(overlay);
     
-    // Debug: Check if sprite is created
     const sprite = overlay.querySelector('.salute-sprite');
-    console.log('Salute sprite created:', sprite);
-    console.log('Sprite background image:', sprite.style.backgroundImage);
-    console.log('Salute1 URL:', salute1Url);
-    console.log('Salute2 URL:', salute2Url);
-    
     return overlay;
 }
 
@@ -320,17 +314,14 @@ async function updateTokenInfo(tweet) {
         
         // Get the full URL from the href attribute
         const tweetUrl = tweetLink.href;
-        console.log('Tweet URL from element:', tweetUrl);
 
         // Check cooldown first
         const lastCallTime = lastCallTimes.get(tweetUrl) || 0;
         const timeSinceLastCall = Date.now() - lastCallTime;
         
         if (timeSinceLastCall < CALL_COOLDOWN) {
-            console.log(`In cooldown period for ${tweetUrl} (${Math.ceil((CALL_COOLDOWN - timeSinceLastCall) / 1000)}s remaining)`);
             // Use cached data if available during cooldown
             if (tokenDataCache.has(tweetUrl)) {
-                console.log('Using cached data during cooldown');
                 const cachedData = tokenDataCache.get(tweetUrl);
                 if (cachedData === null) {
                     throw new Error('No token (cached)');
@@ -349,18 +340,15 @@ async function updateTokenInfo(tweet) {
                 throw new Error('No token (cached)');
             }
         } else {
-            console.log('Fetching new token data');
             try {
                 // Call the contract to get token info
                 tokenData = await contract.getTokenByXUrl(tweetUrl);
-                console.log('New token data received:', tokenData);
                 // Cache the successful result
                 tokenDataCache.set(tweetUrl, tokenData);
                 // Update last call time
                 lastCallTimes.set(tweetUrl, Date.now());
             } catch (error) {
                 // Cache the failed result
-                console.log('No token found, caching result');
                 tokenDataCache.set(tweetUrl, null);
                 // Update last call time even for failed calls
                 lastCallTimes.set(tweetUrl, Date.now());
@@ -376,11 +364,6 @@ async function updateTokenInfo(tweet) {
 
 // Helper function to handle token data
 function handleTokenData(tokenData, tokenInfo, overlay) {
-    console.log('Handling token data:', {
-        tokenAddress: tokenData.tokenAddress,
-        tokenName: tokenData.tokenName,
-        tokenSymbol: tokenData.tokenSymbol,
-    });
     
     // Update the token info panel with real data
     const nameValue = tokenInfo.querySelector('.token-info-row:nth-child(1) .token-info-value');
@@ -680,7 +663,6 @@ function handleKeyPress(event) {
             // Trigger salute animation
             const saluteSprite = overlay.querySelector('.salute-sprite');
             if (saluteSprite) {
-                console.log('Triggering salute animation');
                 saluteSprite.style.backgroundImage = 'var(--salute2-url)';
                 setTimeout(() => {
                     saluteSprite.style.backgroundImage = 'var(--salute1-url)';
@@ -700,7 +682,6 @@ function handleKeyPress(event) {
             const tweetLink = hoveredTweet.querySelector('a[href*="/status/"]');
             if (tweetLink) {
                 const tweetUrl = tweetLink.href;
-                console.log('Clearing cache for tweet:', tweetUrl);
                 tokenDataCache.delete(tweetUrl);
             }
             
@@ -711,7 +692,6 @@ function handleKeyPress(event) {
                                   hoveredTweet.querySelector('div[role="button"][aria-label*="Reply"]');
                 
                 if (replyButton) {
-                    console.log('Found reply button, clicking...');
                     replyButton.click();
 
                     // Wait for the reply input to appear and then insert text
@@ -720,7 +700,6 @@ function handleKeyPress(event) {
                                          document.querySelector('[data-testid="tweetTextarea_0"]');
                         
                         if (replyInput) {
-                            console.log('Found reply input, inserting text...');
                             simulateTyping(replyInput, '@payrespectsbot');
 
                             // Wait a moment for the reply button to become enabled
@@ -730,9 +709,8 @@ function handleKeyPress(event) {
                                                  document.querySelector('[data-testid="tweetButtonInline"]');
                                 
                                 if (sendButton) {
-                                    console.log('Found send button, clicking...');
                                     sendButton.click();
-                                    console.log('Reply sent successfully');
+
                                     
                                     // After sending the reply, wait a moment and then recheck the token
                                     setTimeout(() => {
@@ -742,12 +720,8 @@ function handleKeyPress(event) {
                                     console.error('Could not find send button');
                                 }
                             }, 1000);
-                        } else {
-                            console.error('Could not find reply input box');
                         }
                     }, 500);
-                } else {
-                    console.error('Could not find reply button');
                 }
             } catch (error) {
                 console.error('Error in Press F extension:', error);
