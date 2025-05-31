@@ -55,7 +55,6 @@ export async function deployToken(
     value: 0n,
   });
   const receipt = await publicClient.waitForTransactionReceipt({ hash });
-  console.log("Transaction receipt:", receipt);
   // Try to get the token address from the contract
   const tokenInfo = await publicClient.readContract({
     address: TOKEN_FACTORY_ADDRESS,
@@ -63,6 +62,6 @@ export async function deployToken(
     functionName: "getTokenByXUrl",
     args: [xUrl],
   });
-  // tokenInfo[0] is tokenAddress
+  console.log("Token deployed", tokenInfo.tokenAddress);
   return { hash, tokenAddress: tokenInfo.tokenAddress };
 }

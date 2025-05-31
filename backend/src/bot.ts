@@ -43,12 +43,12 @@ async function startBot() {
             "in_reply_to_user_id",
           ],
           expansions: ["referenced_tweets.id", "author_id"],
-          max_results: 10,
+          max_results: 50,
           since_id: sinceId,
         });
         if (mentions.data?.data && mentions.data.data.length > 0) {
-          sinceId = mentions.data.data[0].id;
-          const tweet = mentions.data.data[0];
+          sinceId = mentions.data.data[mentions.data.data.length - 1].id;
+          const tweet = mentions.data.data[mentions.data.data.length - 1];
           if (
             tweet.referenced_tweets?.some(
               (ref: any) => ref.type === "replied_to"
@@ -121,9 +121,10 @@ async function startBot() {
                 throw e;
               }
 
-              // 4. Reply to user
-              const replyText = `Your token is deployed!\nName: ${name}\nSymbol: ${symbol}\nAddress: ${tokenAddress}`;
+              // 4. Reply to user with emojis
+              const replyText = `🚀 Your token is live!\n\n💎 Name: ${name}\n💫 Symbol: ${symbol}\n🔗 Address: ${tokenAddress}\n\nLFG! 🚀`;
               await userClient.v2.reply(replyText, tweet.id);
+              console.log("✨ Replied to user with token details");
             }
           }
         }

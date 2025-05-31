@@ -86,7 +86,7 @@ const TokenRow = ({ token, index }: { token: Token; index: number }) => {
                             <div className="text-white font-semibold truncate max-w-24" title={token.tokenName}>
                                 {token.tokenName}
                             </div>
-                            <div className="text-cyan-400 font-mono text-xs">
+                            <div className="text-cyan-400 font-mono text-xs text-start">
                                 {token.tokenSymbol}
                             </div>
                         </div>
@@ -267,15 +267,6 @@ export const TokenList = () => {
                     onTokenFetched={handleTokenFetched}
                 />
             ))}
-
-            {/* Header */}
-            <div className="px-6 py-4 border-b border-gray-700/50">
-                <h3 className="text-white text-lg font-bold mb-2 bg-gradient-to-r from-cyan-400 to-purple-400 bg-clip-text text-transparent">
-                    🚀 Token Marketplace
-                </h3>
-                <p className="text-gray-400 text-sm">Choose a token to claim and start earning!</p>
-            </div>
-
             {/* Table Header */}
             <div className="bg-gray-900/50 border-b border-gray-700/50">
                 <div className="grid grid-cols-12 gap-4 items-center py-3 px-6 text-xs font-semibold text-gray-400 uppercase tracking-wider">
@@ -303,15 +294,7 @@ export const TokenList = () => {
                 ))}
             </div>
 
-            {/* Footer */}
-            <div className="border-t border-gray-700/50 px-6 py-4 text-center bg-gray-900/30">
-                <Link
-                    to="welcome"
-                    className="inline-block bg-gradient-to-r from-green-600 to-emerald-600 hover:from-green-500 hover:to-emerald-500 text-white px-6 py-2 rounded-lg font-semibold transition-all duration-300 transform hover:scale-105 shadow-lg hover:shadow-green-500/50"
-                >
-                    ➕ Create New Token
-                </Link>
-            </div>
+
         </div>
     );
 }; 

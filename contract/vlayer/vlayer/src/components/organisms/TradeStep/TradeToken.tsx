@@ -1,3 +1,4 @@
+import { useNotification } from "@blockscout/app-sdk";
 import { useEffect, useState } from "react";
 import { Link, useNavigate, useSearchParams } from "react-router";
 import { formatEther, parseEther } from "viem";
@@ -68,7 +69,8 @@ const PUMPFUN_ADDRESS = "0xd570bf4598d3ccf214e288dd92222b8bd3134984";
 export const TradeToken = () => {
     const [searchParams] = useSearchParams();
     const navigate = useNavigate();
-    const { address, isConnected } = useAccount();
+    const { address, isConnected, chain } = useAccount();
+    const { openTxToast } = useNotification();
 
     const tokenAddress = searchParams.get("token");
     const tokenName = searchParams.get("name");
@@ -100,7 +102,24 @@ export const TradeToken = () => {
     });
 
     // 購買函數
-    const { writeContract, isPending: isBuying } = useWriteContract();
+    const { writeContract, isPending: isBuying } = useWriteContract({
+        mutation: {
+            onSuccess: async (txHash) => {
+                // 顯示交易 toast 通知
+                if (chain?.id && txHash) {
+                    try {
+                        await openTxToast(chain.id.toString(), txHash);
+                        console.log(`Transaction submitted: ${txHash}`);
+                    } catch (error) {
+                        console.error("Failed to show transaction toast:", error);
+                    }
+                }
+            },
+            onError: (error) => {
+                console.error("Transaction failed:", error);
+            }
+        }
+    });
 
     useEffect(() => {
         if (calculatedEthCost) {
