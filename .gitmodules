@@ -1,3 +1,12 @@
 [submodule "contract/vlayer/lib/forge-std"]
 	path = contract/vlayer/lib/forge-std
 	url = https://github.com/foundry-rs/forge-std
+[submodule "lib/openzeppelin-contracts"]
+	path = lib/openzeppelin-contracts
+	url = https://github.com/OpenZeppelin/openzeppelin-contracts
+[submodule "contract/vlayer/dependencies/risc0-ethereum"]
+	path = contract/vlayer/dependencies/risc0-ethereum
+	url = https://github.com/vlayer-xyz/risc0-ethereum
+[submodule "contract/vlayer/dependencies/openzeppelin-contracts"]
+	path = contract/vlayer/dependencies/openzeppelin-contracts
+	url = https://github.com/OpenZeppelin/openzeppelin-contracts
