@@ -1,15 +1,15 @@
 import { createVlayerClient } from "@vlayer/sdk";
+import * as assert from "assert";
+import { encodePacked, keccak256 } from "viem";
 import proverSpec from "../out/WebProofProver.sol/WebProofProver";
 import verifierSpec from "../out/WebProofVerifier.sol/WebProofVerifier";
 import web_proof from "../testdata/web_proof.json";
 import web_proof_invalid_signature from "../testdata/web_proof_invalid_notary_pub_key.json";
-import * as assert from "assert";
-import { encodePacked, keccak256 } from "viem";
 
 import {
-  getConfig,
   createContext,
   deployVlayerContracts,
+  getConfig,
   writeEnvVariables,
 } from "@vlayer/sdk/config";
 
@@ -19,6 +19,11 @@ const { prover, verifier } = await deployVlayerContracts({
   proverSpec,
   verifierSpec,
 });
+
+// 印出合約地址
+console.log("🚀 合約部署完成！");
+console.log("📄 Prover 合約地址:", prover);
+console.log("✅ Verifier 合約地址:", verifier);
 
 await writeEnvVariables(".env", {
   VITE_PROVER_ADDRESS: prover,
@@ -31,7 +36,7 @@ const { chain, ethClient, account, proverUrl, confirmations } =
 
 if (!account) {
   throw new Error(
-    "No account found make sure EXAMPLES_TEST_PRIVATE_KEY is set in your environment variables",
+    "No account found make sure EXAMPLES_TEST_PRIVATE_KEY is set in your environment variables"
   );
 }
 
@@ -137,7 +142,7 @@ async function testSuccessProvingAndVerification({
 
   assert.strictEqual(
     tokenURI,
-    `https://faucet.vlayer.xyz/api/xBadgeMeta?handle=${twitterHandle}`,
+    `https://faucet.vlayer.xyz/api/xBadgeMeta?handle=${twitterHandle}`
   );
 }
 
@@ -163,12 +168,12 @@ async function testFailedProving({
   } catch (error) {
     assert.ok(
       error instanceof Error,
-      `Invalid error returned: ${error as string}`,
+      `Invalid error returned: ${error as string}`
     );
     assert.equal(
       error.message,
       'Preflight failed with error: Preflight: Transaction reverted: ContractError(Revert(Revert("Invalid notary public key")))',
-      `Error with wrong message returned: ${error.message}`,
+      `Error with wrong message returned: ${error.message}`
     );
     console.log("✅ Done");
   }
