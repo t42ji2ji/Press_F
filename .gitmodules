@@ -7,3 +7,6 @@
 [submodule "contract/vlayer/dependencies/openzeppelin-contracts"]
 	path = contract/vlayer/dependencies/openzeppelin-contracts
 	url = https://github.com/OpenZeppelin/openzeppelin-contracts
+[submodule "contract/vlayer/lib/openzeppelin-contracts"]
+	path = contract/vlayer/lib/openzeppelin-contracts
+	url = https://github.com/OpenZeppelin/openzeppelin-contracts
