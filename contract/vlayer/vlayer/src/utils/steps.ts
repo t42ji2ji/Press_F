@@ -6,6 +6,7 @@ import {
   ProveStep,
   SuccessStep,
   TokenList,
+  TradeToken,
   WelcomeScreen,
 } from "../components";
 
@@ -30,6 +31,7 @@ export enum STEP_KIND {
   MINT,
   INSTALL_EXTENSION,
   SUCCESS,
+  TRADE,
 }
 export const steps: Step[] = [
   {
@@ -101,6 +103,17 @@ export const steps: Step[] = [
     description: `Your post is verified and ready to become a tradeable token! Mint it now and start earning royalties from every future trade. Time to make bank from your content! 🌟💸`,
     index: 4,
     xpReward: 500,
+  },
+  {
+    path: "trade",
+    kind: STEP_KIND.TRADE,
+    backUrl: "",
+    component: TradeToken,
+    title: "💰 TOKEN TRADING HUB",
+    description:
+      "Buy tokens from other creators and become part of their success!",
+    index: 6,
+    xpReward: 200,
   },
   {
     path: "success",
