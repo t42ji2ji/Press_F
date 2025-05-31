@@ -11,11 +11,10 @@ interface IPumpFun {
 }
 
 contract TokenFactory {
-    uint256 public currentTokenIndex = 0;
+    uint256 public tokenCount = 0;
     uint256 public immutable INITIAL_AMOUNT = 10 ** 27;
 
     address public contractAddress;
-    address public taxAddress = 0x044421aAbF1c584CD594F9C10B0BbC98546CF8bc;
 
     struct TokenStructure {
         address tokenAddress;
@@ -37,6 +36,7 @@ contract TokenFactory {
         string memory xUser
     ) public payable {
         Token token = new Token(name, ticker, INITIAL_AMOUNT, xUrl, xUser);
+        tokenCount++;
         tokens.push(
             TokenStructure(
                 address(token),
@@ -61,5 +61,43 @@ contract TokenFactory {
     function setPoolAddress(address newAddr) public {
         require(newAddr != address(0), "Non zero Address");
         contractAddress = newAddr;
+    }
+
+    function getTokenByXUrl(
+        string memory xUrl
+    ) public view returns (TokenStructure memory) {
+        for (uint256 i = 0; i < tokens.length; i++) {
+            if (keccak256(bytes(tokens[i].xUrl)) == keccak256(bytes(xUrl))) {
+                return tokens[i];
+            }
+        }
+        revert("Token not found");
+    }
+
+    function getTokensByXUser(
+        string memory xUser
+    ) public view returns (TokenStructure[] memory) {
+        uint256 count = 0;
+
+        // First count matching tokens
+        for (uint256 i = 0; i < tokens.length; i++) {
+            if (keccak256(bytes(tokens[i].xUser)) == keccak256(bytes(xUser))) {
+                count++;
+            }
+        }
+
+        // Create array of matching tokens
+        TokenStructure[] memory userTokens = new TokenStructure[](count);
+        uint256 index = 0;
+
+        // Fill array with matching tokens
+        for (uint256 i = 0; i < tokens.length; i++) {
+            if (keccak256(bytes(tokens[i].xUser)) == keccak256(bytes(xUser))) {
+                userTokens[index] = tokens[i];
+                index++;
+            }
+        }
+
+        return userTokens;
     }
 }
