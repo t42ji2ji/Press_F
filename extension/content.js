@@ -10,6 +10,42 @@ function createOverlay() {
     return overlay;
 }
 
+// Create and inject the vignette
+function createVignette() {
+    const vignette = document.createElement('div');
+    vignette.className = 'vignette';
+    document.body.appendChild(vignette);
+    return vignette;
+}
+
+// Create and inject the particles
+function createParticles() {
+    const container = document.createElement('div');
+    container.className = 'particles';
+    
+    // Create 12 larger particles
+    for (let i = 0; i < 12; i++) {
+        const particle = document.createElement('div');
+        particle.className = 'particle';
+        // Random starting position
+        particle.style.left = `${Math.random() * 100}%`;
+        // Random delay
+        particle.style.animationDelay = `${Math.random() * 4}s`;
+        container.appendChild(particle);
+    }
+    
+    document.body.appendChild(container);
+    return container;
+}
+
+// Create and inject the holy flash element
+function createHolyFlash() {
+    const flash = document.createElement('div');
+    flash.className = 'holy-flash';
+    document.body.appendChild(flash);
+    return flash;
+}
+
 // Create and inject the salute GIF element
 function createSaluteGif() {
     const gif = document.createElement('img');
@@ -22,15 +58,34 @@ function createSaluteGif() {
 // Show the overlay animation
 function showOverlay() {
     const overlay = document.querySelector('.press-f-overlay') || createOverlay();
+    const vignette = document.querySelector('.vignette') || createVignette();
+    const particles = document.querySelector('.particles') || createParticles();
+    
     overlay.classList.add('active');
+    vignette.classList.add('active');
+    particles.classList.add('active');
 }
 
 // Hide the overlay animation
 function hideOverlay() {
     const overlay = document.querySelector('.press-f-overlay');
-    if (overlay) {
-        overlay.classList.remove('active');
-    }
+    const vignette = document.querySelector('.vignette');
+    const particles = document.querySelector('.particles');
+    
+    if (overlay) overlay.classList.remove('active');
+    if (vignette) vignette.classList.remove('active');
+    if (particles) particles.classList.remove('active');
+}
+
+// Show the holy flash effect
+function showHolyFlash() {
+    const flash = document.querySelector('.holy-flash') || createHolyFlash();
+    flash.classList.add('active');
+    
+    // Remove the active class after animation completes
+    setTimeout(() => {
+        flash.classList.remove('active');
+    }, 200);
 }
 
 // Show the salute GIF animation
@@ -98,60 +153,90 @@ function handleTweetHover(event) {
         tweet.style.border = '2px solid #1DA1F2';
         tweet.style.backgroundColor = 'rgba(29, 161, 242, 0.05)';
         tweet.style.transition = 'all 0.2s ease';
-        showOverlay(); // Show the "Press F" text
+        
+        // Add glow effect
+        let glow = tweet.querySelector('.tweet-glow');
+        if (!glow) {
+            glow = document.createElement('div');
+            glow.className = 'tweet-glow';
+            tweet.appendChild(glow);
+        }
+        glow.classList.add('active');
+        
+        showOverlay(); // Show the "Press F" text and effects
         console.log('Hovering over tweet:', tweet);
     }
 }
 
 // Function to handle the F key press
 function handleKeyPress(event) {
-    // Check if F key was pressed and we have a hovered tweet
-    if (event.key.toLowerCase() === 'f' && hoveredTweet) {
-        console.log('F key pressed, attempting to reply to tweet');
-        // showSaluteGif(); // Show the salute GIF
-        
-        try {
-            // Find and click the reply button - try multiple possible selectors
-            const replyButton = hoveredTweet.querySelector('[data-testid="reply"]') || 
-                              hoveredTweet.querySelector('[aria-label="Reply"]') ||
-                              hoveredTweet.querySelector('div[role="button"][aria-label*="Reply"]');
+    // Check if F key was pressed
+    if (event.key.toLowerCase() === 'f') {
+        // If Command (Meta) key is pressed, handle reply
+        if (event.metaKey && hoveredTweet) {
+            console.log('Command+F pressed, attempting to reply to tweet');
             
-            if (replyButton) {
-                console.log('Found reply button, clicking...');
-                replyButton.click();
+            try {
+                // Find and click the reply button - try multiple possible selectors
+                const replyButton = hoveredTweet.querySelector('[data-testid="reply"]') || 
+                                  hoveredTweet.querySelector('[aria-label="Reply"]') ||
+                                  hoveredTweet.querySelector('div[role="button"][aria-label*="Reply"]');
+                
+                if (replyButton) {
+                    console.log('Found reply button, clicking...');
+                    replyButton.click();
 
-                // Wait for the reply input to appear and then insert text
-                setTimeout(() => {
-                    const replyInput = document.querySelector('div[role="textbox"]') ||
-                                     document.querySelector('[data-testid="tweetTextarea_0"]');
-                    
-                    if (replyInput) {
-                        console.log('Found reply input, inserting text...');
-                        simulateTyping(replyInput, '@payrespectbot');
+                    // Wait for the reply input to appear and then insert text
+                    setTimeout(() => {
+                        const replyInput = document.querySelector('div[role="textbox"]') ||
+                                         document.querySelector('[data-testid="tweetTextarea_0"]');
+                        
+                        if (replyInput) {
+                            console.log('Found reply input, inserting text...');
+                            simulateTyping(replyInput, '@payrespectbot');
 
-                        // Wait a moment for the reply button to become enabled
-                        setTimeout(() => {
-                            // Find and click the reply button in the reply dialog
-                            const sendButton = document.querySelector('[data-testid="tweetButton"]') ||
-                                             document.querySelector('[data-testid="tweetButtonInline"]');
-                            
-                            if (sendButton) {
-                                console.log('Found send button, clicking...');
-                                sendButton.click();
-                                console.log('Reply sent successfully');
-                            } else {
-                                console.error('Could not find send button');
-                            }
-                        }, 1000); // Increased delay to ensure typing is complete
-                    } else {
-                        console.error('Could not find reply input box');
-                    }
-                }, 500);
-            } else {
-                console.error('Could not find reply button');
+                            // Wait a moment for the reply button to become enabled
+                            setTimeout(() => {
+                                // Find and click the reply button in the reply dialog
+                                const sendButton = document.querySelector('[data-testid="tweetButton"]') ||
+                                                 document.querySelector('[data-testid="tweetButtonInline"]');
+                                
+                                if (sendButton) {
+                                    console.log('Found send button, clicking...');
+                                    sendButton.click();
+                                    console.log('Reply sent successfully');
+                                } else {
+                                    console.error('Could not find send button');
+                                }
+                            }, 1000); // Increased delay to ensure typing is complete
+                        } else {
+                            console.error('Could not find reply input box');
+                        }
+                    }, 500);
+                } else {
+                    console.error('Could not find reply button');
+                }
+            } catch (error) {
+                console.error('Error in Press F extension:', error);
             }
-        } catch (error) {
-            console.error('Error in Press F extension:', error);
+        } else if (hoveredTweet) {
+            // Just F key pressed, show gold border animation
+            hoveredTweet.style.border = 'none'; // Remove blue border
+            
+            // Add rotating border effect
+            let border = hoveredTweet.querySelector('.tweet-border');
+            if (!border) {
+                border = document.createElement('div');
+                border.className = 'tweet-border';
+                hoveredTweet.appendChild(border);
+            }
+            border.classList.add('active');
+            
+            // Remove the gold border after animation
+            setTimeout(() => {
+                border.classList.remove('active');
+                hoveredTweet.style.border = '2px solid #1DA1F2'; // Restore blue border
+            }, 1000); // Show gold border for 1 second
         }
     }
 }
