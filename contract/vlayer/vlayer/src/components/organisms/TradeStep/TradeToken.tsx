@@ -151,6 +151,7 @@ export const TradeToken = () => {
     const [maxEthCost, setMaxEthCost] = useState<bigint | null>(null);
     const [isCalculating, setIsCalculating] = useState(false);
     const [isApproving, setIsApproving] = useState(false);
+    const [successMessage, setSuccessMessage] = useState<string | null>(null);
 
     // 獲取 bonding curve 數據
     const { data: bondingCurveData } = useReadContract({
@@ -206,13 +207,21 @@ export const TradeToken = () => {
         mutation: {
             onSuccess: async (txHash) => {
                 if (chain?.id && txHash) {
+                    setSuccessMessage(`🎉 Purchase successful! Tokens are on the way!`);
+
                     try {
                         await openTxToast(chain.id.toString(), txHash);
                         console.log(`Buy transaction submitted: ${txHash}`);
+                        // wait 3 seconds
+                        await new Promise(resolve => setTimeout(resolve, 3000));
                         refetchTokenBalance();
                     } catch (error) {
                         console.error("Failed to show transaction toast:", error);
                     }
+
+                    setTimeout(() => {
+                        setSuccessMessage(null);
+                    }, 5000);
                 }
             },
             onError: (error) => {
@@ -226,14 +235,24 @@ export const TradeToken = () => {
         mutation: {
             onSuccess: async (txHash) => {
                 if (chain?.id && txHash) {
+                    setSuccessMessage(`💰 Sell successful! ETH is coming to your wallet!`);
+
                     try {
                         await openTxToast(chain.id.toString(), txHash);
                         console.log(`Sell transaction submitted: ${txHash}`);
                         refetchTokenBalance();
                         refetchAllowance();
+                        // wait 3 seconds
+                        await new Promise(resolve => setTimeout(resolve, 3000));
+                        refetchTokenBalance();
+                        refetchAllowance();
                     } catch (error) {
                         console.error("Failed to show transaction toast:", error);
                     }
+
+                    setTimeout(() => {
+                        setSuccessMessage(null);
+                    }, 5000);
                 }
             },
             onError: (error) => {
@@ -429,6 +448,13 @@ export const TradeToken = () => {
 
                 </div>
             </div>
+
+            {/* Success Message */}
+            {successMessage && (
+                <div className="mx-6 mt-4 p-4 bg-gradient-to-r from-green-600/20 to-emerald-600/20 border border-green-500/50 rounded-xl text-green-400 text-center font-medium animate-pulse">
+                    {successMessage}
+                </div>
+            )}
 
             {/* Trading Interface */}
             <div className="flex-1 p-6 flex items-center justify-center">
