@@ -13,11 +13,17 @@ import { StepErrorBoundaryComponent } from "./ErrorBoundary";
 import { Navigation } from "./Navigation";
 
 export const modalContext = createContext({
-  showModal: () => { },
-  closeModal: () => { },
+  showModal: () => {},
+  closeModal: () => {},
 });
 
-export const Modal = ({ children }: { children: React.ReactNode }) => {
+export const Modal = ({
+  children,
+  overlays,
+}: {
+  children: React.ReactNode;
+  overlays?: React.ReactNode;
+}) => {
   const modalRef = useRef<HTMLDialogElement>(null);
 
   const showModal = useCallback(() => {
@@ -60,12 +66,17 @@ export const Modal = ({ children }: { children: React.ReactNode }) => {
       <div className="fixed inset-0 bg-gradient-to-br from-purple-900 via-black to-blue-900 opacity-90" />
 
       {/* Main Modal Container - 根據是否為TokenList或Trade調整尺寸 */}
-      <div className={`modal-box bg-black/90 backdrop-blur-xl rounded-2xl border-2 border-purple-500/50 shadow-2xl shadow-purple-500/25 relative overflow-hidden ${isTokenList
-        ? 'w-11/12 max-w-7xl h-5/6 max-h-[90vh]'
-        : isTradeStep
-          ? 'w-11/12 max-w-4xl h-5/6 max-h-[90vh]'
-          : 'w-full max-w-2xl'
-        }`}>
+      <div
+        className={`modal-box bg-black/90 backdrop-blur-xl rounded-2xl border-2 border-purple-500/50 shadow-2xl shadow-purple-500/25 relative overflow-hidden ${
+          isTokenList
+            ? "w-11/12 max-w-7xl h-5/6 max-h-[90vh]"
+            : isTradeStep
+            ? "w-11/12 max-w-4xl h-5/6 max-h-[90vh]"
+            : "w-full max-w-2xl"
+        }`}
+      >
+        {/* Overlays (e.g., TweetModal) */}
+        {overlays}
 
         {/* Content Container */}
         <motion.div
@@ -77,7 +88,7 @@ export const Modal = ({ children }: { children: React.ReactNode }) => {
             type: "spring",
             stiffness: 200,
             damping: 20,
-            duration: 0.8
+            duration: 0.8,
           }}
         >
           {/* Navigation with Glow */}
@@ -102,7 +113,7 @@ export const Modal = ({ children }: { children: React.ReactNode }) => {
                     type: "spring",
                     stiffness: 300,
                     damping: 15,
-                    duration: 0.6
+                    duration: 0.6,
                   }}
                 >
                   {/* Glow Effect Behind Icon */}
@@ -122,8 +133,11 @@ export const Modal = ({ children }: { children: React.ReactNode }) => {
               )}
             </AnimatePresence>
 
-            <div className={`flex-col flex gap-6 justify-center mb-2 w-full ${isTokenList || isTradeStep ? 'flex-1 min-h-0' : 'h-[284px]'
-              }`}>
+            <div
+              className={`flex-col flex gap-6 justify-center mb-2 w-full ${
+                isTokenList || isTradeStep ? "flex-1 min-h-0" : "h-[284px]"
+              }`}
+            >
               {/* Game Title with Glitch Effect */}
               {currentStep?.gameTitle && (
                 <motion.div
@@ -139,8 +153,8 @@ export const Modal = ({ children }: { children: React.ReactNode }) => {
                         "0 0 10px #00ffff",
                         "0 0 20px #ffff00",
                         "0 0 10px #ff00ff",
-                        "0 0 10px #00ffff"
-                      ]
+                        "0 0 10px #00ffff",
+                      ],
                     }}
                     transition={{ duration: 2, repeat: Infinity }}
                   >
@@ -157,7 +171,8 @@ export const Modal = ({ children }: { children: React.ReactNode }) => {
                   animate={{ opacity: 1, y: 0 }}
                   transition={{ delay: 0.5 }}
                   style={{
-                    textShadow: "0 0 20px rgba(139, 92, 246, 0.8), 0 0 40px rgba(139, 92, 246, 0.4)"
+                    textShadow:
+                      "0 0 20px rgba(139, 92, 246, 0.8), 0 0 40px rgba(139, 92, 246, 0.4)",
                   }}
                 >
                   {currentStep?.title}
@@ -172,7 +187,9 @@ export const Modal = ({ children }: { children: React.ReactNode }) => {
                   animate={{ opacity: 1 }}
                   transition={{ delay: 0.6 }}
                 >
-                  <p className={`text-gray-300 leading-relaxed ${descClass} text-lg`}>
+                  <p
+                    className={`text-gray-300 leading-relaxed ${descClass} text-lg`}
+                  >
                     {description}
                   </p>
                 </motion.div>
@@ -186,7 +203,9 @@ export const Modal = ({ children }: { children: React.ReactNode }) => {
                   animate={{ opacity: 1 }}
                   transition={{ delay: 0.6 }}
                 >
-                  <p className={`text-gray-300 leading-relaxed ${descClass} text-sm`}>
+                  <p
+                    className={`text-gray-300 leading-relaxed ${descClass} text-sm`}
+                  >
                     {description}
                   </p>
                 </motion.div>
@@ -194,7 +213,9 @@ export const Modal = ({ children }: { children: React.ReactNode }) => {
 
               {/* Content with Slide-in Effect - TokenList和Trade時佔滿剩餘空間 */}
               <motion.div
-                className={isTokenList || isTradeStep ? "flex-1 overflow-auto" : ""}
+                className={
+                  isTokenList || isTradeStep ? "flex-1 overflow-auto" : ""
+                }
                 initial={{ opacity: 0, y: 50 }}
                 animate={{ opacity: 1, y: 0 }}
                 transition={{ delay: 0.7, type: "spring" }}

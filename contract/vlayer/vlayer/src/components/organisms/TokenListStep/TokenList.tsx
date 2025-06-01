@@ -1,8 +1,10 @@
-import { useEffect, useState } from "react";
+import { useEffect, useState, createContext, useContext } from "react";
 import { Link } from "react-router";
 import { useReadContract } from "wagmi";
 import { isMobile } from "../../../utils";
 import { EmbeddedTweet } from "react-tweet";
+import ReactDOM from "react-dom";
+import { useOverlay as useOverlayContext } from "./TokenList";
 
 // TokenFactory ABI - 從之前看到的ABI文件中提取
 const TOKEN_FACTORY_ABI = [
@@ -83,22 +85,51 @@ interface TweetData {
   };
 }
 
-// Tweet Modal Component
-const TweetModal = ({
-  url,
-  isVisible,
+// Overlay context for modal overlays
+export const OverlayContext = createContext({
+  tweetUrl: null as string | null,
+  pos: null as { x: number; y: number } | null,
+  setOverlay: (_: {
+    tweetUrl: string | null;
+    pos: { x: number; y: number } | null;
+  }) => {},
+});
+export const useOverlay = () => useContext(OverlayContext);
+export const OverlayProvider = ({
+  children,
 }: {
-  url: string;
-  isVisible: boolean;
+  children: React.ReactNode;
 }) => {
+  const [tweetUrl, setTweetUrl] = useState<string | null>(null);
+  const [pos, setPos] = useState<{ x: number; y: number } | null>(null);
+  const setOverlay = ({
+    tweetUrl,
+    pos,
+  }: {
+    tweetUrl: string | null;
+    pos: { x: number; y: number } | null;
+  }) => {
+    setTweetUrl(tweetUrl);
+    setPos(pos);
+  };
+  return (
+    <OverlayContext.Provider value={{ tweetUrl, pos, setOverlay }}>
+      {children}
+    </OverlayContext.Provider>
+  );
+};
+
+// Tweet Modal Component
+const TweetModal = ({ isVisible }: { isVisible?: boolean }) => {
+  const { tweetUrl, pos } = useOverlay();
   const [tweetId, setTweetId] = useState<string | null>(null);
   const [tweetData, setTweetData] = useState<any>(null);
   const [isLoading, setIsLoading] = useState(false);
 
   useEffect(() => {
-    if (isVisible && url) {
+    if (tweetUrl) {
       // Extract tweet ID from URL
-      const id = url.split("/").pop()?.split("?")[0];
+      const id = tweetUrl.split("/").pop()?.split("?")[0];
       if (id) {
         setTweetId(id);
         setIsLoading(true);
@@ -118,38 +149,57 @@ const TweetModal = ({
           .catch(console.error)
           .finally(() => setIsLoading(false));
       }
+    } else {
+      setTweetId(null);
+      setTweetData(null);
     }
-  }, [isVisible, url]);
+  }, [tweetUrl]);
 
-  if (!isVisible) return null;
+  if (!tweetUrl || !pos) return null;
 
   return (
-    <>
-      {tweetId && (
-        <div className="absolute bottom-full left-1/2 transform -translate-x-1/2 mb-4 w-[350px] bg-gray-900 rounded-lg shadow-xl z-[9999]">
-          <div className="p-2" data-theme="dark">
-            {isLoading ? (
-              <div className="animate-pulse">
-                <div className="h-4 bg-gray-700 rounded w-3/4 mb-4"></div>
-                <div className="h-4 bg-gray-700 rounded w-1/2"></div>
-              </div>
-            ) : tweetData ? (
-              <div className="max-h-[600px] overflow-y-auto">
-                <EmbeddedTweet tweet={tweetData} />
-              </div>
-            ) : (
-              <div className="text-gray-400">Failed to load tweet</div>
-            )}
+    <div
+      className="fixed z-[2147483647] w-[350px] bg-green-900 rounded-lg shadow-xl"
+      style={{
+        left: pos.x,
+        top: pos.y - 8, // 8px above the icon
+        transform: "translate(-50%, 0)",
+        pointerEvents: "auto",
+      }}
+    >
+      <div className="p-2" data-theme="dark">
+        {isLoading ? (
+          <div className="animate-pulse">
+            <div className="h-4 bg-gray-700 rounded w-3/4 mb-4"></div>
+            <div className="h-4 bg-gray-700 rounded w-1/2"></div>
           </div>
-        </div>
-      )}
-    </>
+        ) : tweetData ? (
+          <div className="max-h-[600px] overflow-y-auto">
+            <EmbeddedTweet tweet={tweetData} />
+          </div>
+        ) : (
+          <div className="text-gray-400">Failed to load tweet</div>
+        )}
+      </div>
+    </div>
   );
 };
 
 // 列表行組件
 const TokenRow = ({ token, index }: { token: Token; index: number }) => {
-  const [showTweetModal, setShowTweetModal] = useState(false);
+  const { setOverlay } = useOverlay();
+
+  const handleMouseEnter = (e: React.MouseEvent) => {
+    const rect = (e.target as HTMLElement).getBoundingClientRect();
+    setOverlay({
+      tweetUrl: token.xUrl,
+      pos: { x: rect.left + rect.width / 2, y: rect.bottom },
+    });
+  };
+
+  const handleMouseLeave = () => {
+    setOverlay({ tweetUrl: null, pos: null });
+  };
 
   return (
     <div className="bg-gray-800/40 hover:bg-gray-700/60 border-b border-gray-700/50 transition-all duration-200 hover:shadow-lg hover:shadow-purple-500/10">
@@ -210,17 +260,15 @@ const TokenRow = ({ token, index }: { token: Token; index: number }) => {
         {/* X Link */}
         <div className="col-span-1">
           {token.xUrl ? (
-            <div
-              className="relative"
-              onMouseEnter={() => setShowTweetModal(true)}
-              onMouseLeave={() => setShowTweetModal(false)}
-            >
+            <div className="relative">
               <a
                 href={token.xUrl}
                 target="_blank"
                 rel="noopener noreferrer"
                 className="text-blue-400 hover:text-blue-300 transition-colors"
                 title="View on X.com"
+                onMouseEnter={handleMouseEnter}
+                onMouseLeave={handleMouseLeave}
               >
                 <svg
                   className="w-4 h-4"
@@ -230,7 +278,6 @@ const TokenRow = ({ token, index }: { token: Token; index: number }) => {
                   <path d="M18.244 2.25h3.308l-7.227 8.26 8.502 11.24H16.17l-5.214-6.817L4.99 21.75H1.68l7.73-8.835L1.254 2.25H8.08l4.713 6.231zm-1.161 17.52h1.833L7.084 4.126H5.117z" />
                 </svg>
               </a>
-              <TweetModal url={token.xUrl} isVisible={showTweetModal} />
             </div>
           ) : (
             <div className="text-gray-600">-</div>
@@ -414,3 +461,5 @@ export const TokenList = () => {
     </div>
   );
 };
+
+export { TweetModal };

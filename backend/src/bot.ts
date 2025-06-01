@@ -39,8 +39,9 @@ async function startBot() {
       let sleepMs = 5000; // default sleep 5s
       try {
         const now = new Date();
-        const fiveMinutesAgo = new Date(now.getTime() - 5 * 60 * 1000);
-        const startTime = fiveMinutesAgo.toISOString();
+        const tenMinutesAgo = new Date(now.getTime() - 10 * 60 * 1000);
+        const startTime = tenMinutesAgo.toISOString().split(".")[0] + "Z";
+        console.log("startTime", startTime);
 
         const mentions = await userClient.v2.userMentionTimeline(botId, {
           "tweet.fields": [
