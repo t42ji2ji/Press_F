@@ -2,6 +2,7 @@ import { useEffect, useState } from "react";
 import { Link } from "react-router";
 import { useReadContract } from "wagmi";
 import { isMobile } from "../../../utils";
+import { EmbeddedTweet } from "react-tweet";
 
 // TokenFactory ABI - 從之前看到的ABI文件中提取
 const TOKEN_FACTORY_ABI = [
@@ -66,8 +67,90 @@ const shortenAddress = (address: string): string => {
   return `${address.slice(0, 6)}...${address.slice(-4)}`;
 };
 
+interface TweetData {
+  data: {
+    text: string;
+    created_at: string;
+    user: {
+      name: string;
+      screen_name: string;
+      profile_image_url_https: string;
+      verified: boolean;
+      is_blue_verified: boolean;
+    };
+    favorite_count: number;
+    conversation_count: number;
+  };
+}
+
+// Tweet Modal Component
+const TweetModal = ({
+  url,
+  isVisible,
+}: {
+  url: string;
+  isVisible: boolean;
+}) => {
+  const [tweetId, setTweetId] = useState<string | null>(null);
+  const [tweetData, setTweetData] = useState<any>(null);
+  const [isLoading, setIsLoading] = useState(false);
+
+  useEffect(() => {
+    if (isVisible && url) {
+      // Extract tweet ID from URL
+      const id = url.split("/").pop()?.split("?")[0];
+      if (id) {
+        setTweetId(id);
+        setIsLoading(true);
+        fetch(`https://react-tweet.vercel.app/api/tweet/${id}`, {
+          headers: {
+            accept: "*/*",
+            origin: "https://axiom.trade",
+            referer: "https://axiom.trade/",
+          },
+        })
+          .then((res) => res.json())
+          .then((data) => {
+            if (data.data) {
+              setTweetData(data.data);
+            }
+          })
+          .catch(console.error)
+          .finally(() => setIsLoading(false));
+      }
+    }
+  }, [isVisible, url]);
+
+  if (!isVisible) return null;
+
+  return (
+    <>
+      {tweetId && (
+        <div className="absolute bottom-full left-1/2 transform -translate-x-1/2 mb-4 w-[350px] bg-gray-900 rounded-lg shadow-xl z-[9999]">
+          <div className="p-2" data-theme="dark">
+            {isLoading ? (
+              <div className="animate-pulse">
+                <div className="h-4 bg-gray-700 rounded w-3/4 mb-4"></div>
+                <div className="h-4 bg-gray-700 rounded w-1/2"></div>
+              </div>
+            ) : tweetData ? (
+              <div className="max-h-[600px] overflow-y-auto">
+                <EmbeddedTweet tweet={tweetData} />
+              </div>
+            ) : (
+              <div className="text-gray-400">Failed to load tweet</div>
+            )}
+          </div>
+        </div>
+      )}
+    </>
+  );
+};
+
 // 列表行組件
 const TokenRow = ({ token, index }: { token: Token; index: number }) => {
+  const [showTweetModal, setShowTweetModal] = useState(false);
+
   return (
     <div className="bg-gray-800/40 hover:bg-gray-700/60 border-b border-gray-700/50 transition-all duration-200 hover:shadow-lg hover:shadow-purple-500/10">
       <div className="grid grid-cols-12 gap-4 items-center py-4 px-6 text-sm">
@@ -127,21 +210,28 @@ const TokenRow = ({ token, index }: { token: Token; index: number }) => {
         {/* X Link */}
         <div className="col-span-1">
           {token.xUrl ? (
-            <a
-              href={token.xUrl}
-              target="_blank"
-              rel="noopener noreferrer"
-              className="text-blue-400 hover:text-blue-300 transition-colors relative group"
-              title="View on X.com"
+            <div
+              className="relative"
+              onMouseEnter={() => setShowTweetModal(true)}
+              onMouseLeave={() => setShowTweetModal(false)}
             >
-              <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 24 24">
-                <path d="M18.244 2.25h3.308l-7.227 8.26 8.502 11.24H16.17l-5.214-6.817L4.99 21.75H1.68l7.73-8.835L1.254 2.25H8.08l4.713 6.231zm-1.161 17.52h1.833L7.084 4.126H5.117z" />
-              </svg>
-              {/* 簡單的 tooltip */}
-              <div className="absolute bottom-full left-1/2 transform -translate-x-1/2 mb-2 px-2 py-1 bg-gray-800 text-white text-xs rounded opacity-0 group-hover:opacity-100 transition-opacity whitespace-nowrap z-10 pointer-events-none">
-                {token.xUrl}
-              </div>
-            </a>
+              <a
+                href={token.xUrl}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="text-blue-400 hover:text-blue-300 transition-colors"
+                title="View on X.com"
+              >
+                <svg
+                  className="w-4 h-4"
+                  fill="currentColor"
+                  viewBox="0 0 24 24"
+                >
+                  <path d="M18.244 2.25h3.308l-7.227 8.26 8.502 11.24H16.17l-5.214-6.817L4.99 21.75H1.68l7.73-8.835L1.254 2.25H8.08l4.713 6.231zm-1.161 17.52h1.833L7.084 4.126H5.117z" />
+                </svg>
+              </a>
+              <TweetModal url={token.xUrl} isVisible={showTweetModal} />
+            </div>
           ) : (
             <div className="text-gray-600">-</div>
           )}
@@ -291,6 +381,7 @@ export const TokenList = () => {
           onTokenFetched={handleTokenFetched}
         />
       ))}
+
       {/* Table Header */}
       <div className="bg-gray-900/50 border-b border-gray-700/50">
         <div className="grid grid-cols-12 gap-4 items-center py-3 px-6 text-xs font-semibold text-gray-400 uppercase tracking-wider">
